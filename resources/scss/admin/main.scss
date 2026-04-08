@@ -1,0 +1,62 @@
+// Vendor css files.
+@use 'simplebar/dist/simplebar.min.css';
+@use 'boxicons/css/boxicons.css';
+@use 'flatpickr/dist/flatpickr.css';
+@use 'swiper/swiper-bundle.css';
+@use 'tippy.js/dist/tippy.css';
+@use 'tippy.js/animations/shift-away.css';
+@use 'tippy.js/animations/shift-away-subtle.css';
+@use 'tippy.js/animations/shift-away-extreme.css';
+@use 'tippy.js/animations/shift-toward.css';
+@use 'tippy.js/animations/shift-toward-subtle.css';
+@use 'tippy.js/animations/shift-toward-extreme.css';
+@use 'tippy.js/animations/scale.css';
+@use 'tippy.js/animations/scale-subtle.css';
+@use 'tippy.js/animations/scale-extreme.css';
+@use 'tippy.js/animations/perspective.css';
+@use 'tippy.js/animations/perspective-subtle.css';
+@use 'tippy.js/animations/perspective-extreme.css';
+@use 'tippy.js/themes/light.css';
+@use 'tippy.js/themes/light-border.css';
+@use 'tippy.js/themes/material.css';
+@use 'tippy.js/themes/translucent.css';
+
+// Base
+@use 'tailwind';
+@use 'base';
+@use 'typography';
+@use 'utilities';
+@use 'sidebar';
+@use 'reset';
+
+// Components
+
+@use 'components/toggle';
+@use 'components/card';
+@use 'components/calendar';
+@use 'components/button';
+@use 'components/breadcrumb';
+@use 'components/dropdown';
+@use 'components/accordion';
+@use 'components/badge';
+@use 'components/input';
+@use 'components/input-group';
+@use 'components/textarea';
+@use 'components/alert';
+@use 'components/radio';
+@use 'components/checkbox';
+@use 'components/modal';
+@use 'components/pagination';
+@use 'components/avatar';
+
+@use 'components/tabs';
+@use 'components/toast';
+@use 'components/list-group';
+@use 'components/select';
+@use 'components/table';
+
+@use 'components/datepicker';
+@use 'components/data-table';
+@use 'components/carousel';
+@use 'components/drawer';
+@use 'components/uploader';

@@ -1,0 +1,36 @@
+{
+  "name": "AiTraining",
+  "alias": "aitraining",
+  "description": "",
+  "keywords": [],
+  "priority": 8,
+  "providers": [
+    "Modules\\AiTraining\\App\\Providers\\AiTrainingServiceProvider"
+  ],
+  "files": [],
+  "accessible": true,
+  "version": "1.0",
+  "module_type": "Features",
+  "service_type": "auto_reply",
+  "menu": [
+    {
+      "id": "8",
+      "order": 8,
+      "heading": "AiTraining",
+      "menu_type": "user",
+      "deletable": false,
+      "module": "ai-reply",
+      "links": [
+        {
+          "id": "m3u63s60",
+          "permission": "ai-training",
+          "icon": "bx:code-block",
+          "text": "Ai Training",
+          "href": "user.aitraining.ai-training.index",
+          "target": "_self",
+          "deletable": false
+        }
+      ]
+    }
+  ]
+}

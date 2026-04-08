@@ -1,0 +1,11 @@
+{
+    "name": "UltimatePOS",
+    "alias": "ultimatepos",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        
+    ],
+    "files": []
+}

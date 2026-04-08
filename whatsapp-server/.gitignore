@@ -1,0 +1,50 @@
+<<<<<<< HEAD
+
+node_modules/
+debug/
+prisma/migrations/
+=======
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+bun.lock
+
+# Environment variables
+>>>>>>> 56723ac6f9a53ccbf174abd98b4d2c61462b9dd0
+.env
+.env.local
+.env.*.local
+
+# Prisma
+/generated/prisma
+
+# Sessions and data
+sessions/*
+!sessions/.gitignore
+*.data.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+check-*.js

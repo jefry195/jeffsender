@@ -1,0 +1,34 @@
+{
+  "name": "QAReply",
+  "alias": "qareply",
+  "description": "",
+  "keywords": [],
+  "priority": 7,
+  "providers": [
+    "Modules\\QAReply\\App\\Providers\\QAReplyServiceProvider"
+  ],
+  "files": [],
+  "accessible": true,
+  "version": "1.0",
+  "module_type": "Features",
+  "service_type": "auto_reply",
+  "menu": [
+    {
+      "id": "7",
+      "heading": "Question Answer",
+      "order": 7,
+      "menu_type": "user",
+      "deletable": false,
+      "module": "q-a-reply",
+      "links": [
+        {
+          "text": "QA Reply",
+          "icon": "bx:detail",
+          "href": "/user/qareply/qareplies",
+          "target": "_self",
+          "deletable": false
+        }
+      ]
+    }
+  ]
+}

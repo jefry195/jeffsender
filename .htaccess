@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /jeffsender/
+
+    # Skip if request is for an existing file or directory
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Forward everything to public/index.php but strip the base path first
+    RewriteRule ^(.*)$ public/index.php/$1 [L,QSA]
+</IfModule>

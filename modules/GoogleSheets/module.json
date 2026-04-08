@@ -1,0 +1,11 @@
+{
+    "name": "GoogleSheets",
+    "alias": "googlesheets",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        
+    ],
+    "files": []
+}
