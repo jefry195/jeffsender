@@ -69,13 +69,13 @@ class SubscriptionController extends Controller
         $invoice_data = get_option('invoice_data', true);
         if (empty($invoice_data)) {
             $invoice_data = (object)[
-                'company_name' => 'WhatsML',
+                'company_name' => 'JeffSender',
                 'address' => 'USA',
                 'city' => 'New York',
                 'post_code' => '10001',
                 'country' => 'USA',
                 'email' => 'admin@admin.com',
-                'phone' => '1234567890'
+                'phone' => '082354506569'
             ];
         }
 

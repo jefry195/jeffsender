@@ -26,5 +26,10 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             //
         });
+
+        // Tangkap error CSRF (419) dan redirect kembali dengan pesan agar token refresh otomatis
+        $this->renderable(function (\Illuminate\Session\TokenMismatchException $e, $request) {
+            return redirect()->back()->with('danger', __('Sesi Anda telah berakhir karena tidak ada aktivitas. Halaman telah disegarkan, silakan coba lagi.'));
+        });
     }
 }

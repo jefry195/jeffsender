@@ -116,7 +116,8 @@ class Message extends Model
     {
         $isTextMessage = $this->type === 'text' || $this->type === 'button';
         $platformEnabledAutoReply = $this->platform?->isAutoReplyEnabled();
-        $hasPlanAccess = validateUserPlan('auto_reply', true, $this->owner_id);
+        $planCheck = validateUserPlan('auto_reply', true, $this->owner_id);
+        $hasPlanAccess = is_array($planCheck) && isset($planCheck['status']) && $planCheck['status'] === 'success';
 
         return $isTextMessage && $platformEnabledAutoReply && $hasPlanAccess;
     }

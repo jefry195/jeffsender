@@ -20,6 +20,7 @@ use Inertia\Inertia;
 use libphonenumber\PhoneNumberUtil;
 use Maatwebsite\Excel\Facades\Excel;
 use Modules\WhatsappWeb\App\Imports\CustomerListImport;
+use Modules\WhatsappWeb\App\Services\WhatsAppWebService;
 
 class CustomerController extends Controller
 {
@@ -37,46 +38,67 @@ class CustomerController extends Controller
         /** @var \App\Models\User */
         $user = activeWorkspaceOwner();
         $queryBuilder = $user->customers()->whatsappWeb();
+        
+        // Filter berdasarkan group jika ada di request
+        if (request()->filled('group_id')) {
+            $queryBuilder->whereHas('groups', function($q) {
+                $q->where('groups.id', request('group_id'));
+            });
+        }
+
         $query = $queryBuilder->clone()->filterOn(['name', 'uuid']);
 
         $rows = request('rows', 25);
         if ($rows == 'all') {
-            $rows = $query->count() ?: 25;
+            $totalCount = $query->clone()->count();
+            // Show all on one page — max 10000 as a memory safety cap
+            $rows = max(1, min($totalCount, 10000));
+
+            // When showing all rows, page > 1 makes no sense — redirect to page 1
+            if (request('page', 1) > 1) {
+                return redirect()->to(
+                    route('user.whatsapp-web.customers.index', array_merge(
+                        request()->except('page'),
+                        ['page' => 1]
+                    ))
+                );
+            }
         }
+
+
+        // Snapshot overviews BEFORE paginate() so LIMIT/OFFSET don't corrupt the count
+        $overviews = [
+            [
+                'icon'  => 'bx:list-ul',
+                'title' => 'Total Contact',
+                'value' => $query->clone()->count(),
+            ],
+            [
+                'icon'  => 'bx:checkbox-checked',
+                'title' => 'Last 7 Days',
+                'value' => $query->clone()->whereBetween('customers.created_at', [now()->subDays(7), now()])->count(),
+            ],
+            [
+                'icon'  => 'hugeicons:limitation',
+                'title' => 'Max Contact',
+                'value' => PlanPerks::planValue('contacts'),
+            ],
+        ];
 
         $customers = $query->latest()
             ->with('groups')
             ->paginate($rows)
             ->withQueryString();
 
-        $groups = $user->groups()
-            ->whatsappWeb()
-            ->select('id as value', 'name as label')
-            ->latest()
-            ->get();
-
-        $overviews = [
-            [
-                'icon' => 'bx:list-ul',
-                'title' => 'Total Contact',
-                'value' => $query->clone()->count(),
-            ],
-            [
-                'icon' => 'bx:checkbox-checked',
-                'title' => 'Last 7 Days',
-                'value' => $query->clone()->whereBetween('customers.created_at', [now()->subDays(7), now()])->count(),
-            ],
-            [
-                'icon' => 'hugeicons:limitation',
-                'title' => 'Max Contact',
-                'value' => PlanPerks::planValue('contacts'),
-            ],
-        ];
-
-        PageHeader::set()
+        $header = PageHeader::set()
             ->title('Customers')
-            ->overviews($overviews)
-            ->addModal('Import From Device', 'importFromDeviceModal', 'bx:mobile')
+            ->overviews($overviews);
+
+        if (PlanPerks::checkPlan('group_extractor', true)['status'] === 'success') {
+            $header->addModal('Elite Group Harvester', 'groupHarvesterModal', 'bx:collection');
+        }
+
+        $header->addModal('Import From Device', 'importFromDeviceModal', 'bx:mobile')
             ->addModal('Import CSV', 'importModal', 'bx:file')
             ->addModal('Import ScrapeData', 'importFromScrapeDataModal', 'bx:globe')
             ->addLink(
@@ -87,11 +109,18 @@ class CustomerController extends Controller
             )
             ->addLink(__('Add New'), route('user.whatsapp-web.customers.create'), 'bx-plus');
 
-        $platforms = $user->platforms()->whatsappWeb()->select(['id as value', 'name as label'])->get();
+        $groups = $user->groups()
+            ->whatsappWeb()
+            ->select('id as value', 'name as label')
+            ->latest()
+            ->get();
+
+        $platforms = $user->platforms()->whatsappWeb()->select(['id as value', 'name as label', 'id', 'name', 'meta'])->get();
         $scraped_record = WebScraping::where('user_id', $user->id)
             ->select(['id as value', 'title as label'])
             ->where('module', 'whatsapp-web')
             ->get();
+
 
         return Inertia::render('Customers/Index', [
             'customers' => $customers,
@@ -145,7 +174,7 @@ class CustomerController extends Controller
         }
 
         $phoneUtil = PhoneNumberUtil::getInstance();
-        $formattedNumber = $phoneUtil->parse($request->phone, 'BD');
+        $formattedNumber = $phoneUtil->parse($request->phone, 'ID');
 
         $customer = $user->customers()->create([
             'module' => 'whatsapp-web',
@@ -293,6 +322,25 @@ class CustomerController extends Controller
 
             foreach ($platformContacts as $contact) {
                 $name = $contact->name ?? $contact->notify ?? $contact->verifiedName ?? 'Unknown';
+
+                if ($name === 'Unknown') {
+                    $chat = DB::table('Chat')
+                        ->where('sessionId', $platform->uuid)
+                        ->where('id', $contact->id)
+                        ->whereNotNull('name')
+                        ->first();
+                    $name = $chat->name ?? 'Unknown';
+                }
+
+                if ($name === 'Unknown') {
+                    $message = DB::table('Message')
+                        ->where('sessionId', $platform->uuid)
+                        ->where('remoteJid', $contact->id)
+                        ->whereNotNull('pushName')
+                        ->first();
+                    $name = $message->pushName ?? 'Unknown';
+                }
+
                 $picture = $contact->imgUrl;
                 $phone = str($contact->id)->before('@')->toString();
 
@@ -304,31 +352,124 @@ class CustomerController extends Controller
                 }
 
                 $phoneUtil = PhoneNumberUtil::getInstance();
-                $formattedNumber = $phoneUtil->parse($phone, 'BD');
+                $formattedNumber = $phoneUtil->parse($phone, 'ID'); // Changed from 'BD' to 'ID' for Indonesia
 
-                $customer = $platform->customers()->updateOrCreate(
+                $updateData = [
+                    'picture' => $picture,
+                    'meta' => [
+                        'dial_code' => $formattedNumber->getCountryCode(),
+                        'phone' => $formattedNumber->getNationalNumber(),
+                    ],
+                ];
+
+                if ($name !== 'Unknown') {
+                    $updateData['name'] = $name;
+                }
+
+                $customer = $platform->customers()->where('uuid', $phone)->first();
+
+                if ($customer) {
+                    $customer->update($updateData);
+                } else {
+                    $updateData['module'] = 'whatsapp-web';
+                    $updateData['owner_id'] = $platform->owner_id;
+                    $updateData['uuid'] = $phone;
+                    if (!isset($updateData['name'])) {
+                        $updateData['name'] = 'Unknown';
+                    }
+                    $customer = $platform->customers()->create($updateData);
+                    $total++;
+                }
+
+                $customer->groups()->syncWithoutDetaching($request->group_ids);
+            }
+        }
+
+        return back()->with('success', $total.__(' Customers Imported Successfully'));
+    }
+
+    public function getGroupsByPlatform(Request $request, WhatsAppWebService $service)
+    {
+        $platform = Platform::where('id', $request->platform_id)->firstOrFail();
+        $response = $service->getGroups($platform->uuid);
+        
+        if (isset($response['data']['chats'])) {
+            return response()->json($response['data']['chats']);
+        }
+
+        return response()->json([]);
+    }
+
+    public function importFromGroup(Request $request, WhatsAppWebService $service)
+    {
+        PlanPerks::checkPlan('group_extractor');
+
+        $request->validate([
+            'platform_id' => 'required|exists:platforms,id',
+            'wa_group_id' => 'required|string',
+            'group_ids' => 'required|array',
+            'group_ids.*' => 'exists:groups,id',
+        ]);
+
+        $platform = Platform::findOrFail($request->platform_id);
+        $groupMeta = $service->getGroupMetaData($platform->uuid, $request->wa_group_id);
+
+        if (!$groupMeta['success']) {
+            return back()->with('danger', __('Failed to fetch group members.'));
+        }
+
+        $participants = $groupMeta['data']['participants'] ?? [];
+        $total = 0;
+
+        // Prevent timeout for large groups
+        set_time_limit(0);
+        
+        // IMPORTANT: Release session lock so user can still browse other pages 
+        // while this long process runs. This prevents "419 Page Expired" or "Logout" feel.
+        session_write_close();
+
+        $phoneUtil = PhoneNumberUtil::getInstance();
+        $ownerId = $platform->owner_id;
+        $targetGroupIds = $request->group_ids;
+
+        foreach ($participants as $participant) {
+            $jid = $participant['phoneNumber'] ?? $participant['id'];
+            if (!$jid) continue;
+
+            $phone = str($jid)->before('@')->toString();
+            
+            // Filter only valid individual numbers
+            if (str($jid)->contains('@g.us')) continue;
+            if (!str($jid)->contains('@s.whatsapp.net')) continue;
+
+            try {
+                $formattedNumber = $phoneUtil->parse($phone, 'ID');
+                
+                $customer = Customer::updateOrCreate(
                     [
                         'module' => 'whatsapp-web',
-                        'owner_id' => $platform->owner_id,
+                        'owner_id' => $ownerId,
                         'uuid' => $phone,
                     ],
                     [
-                        'name' => $name,
-                        'picture' => $picture,
+                        'name' => $participant['name'] ?? 'Unknown',
                         'meta' => [
                             'dial_code' => $formattedNumber->getCountryCode(),
                             'phone' => $formattedNumber->getNationalNumber(),
                         ],
                     ]
                 );
-                $customer->groups()->sync($request->group_ids);
+
+                $customer->groups()->syncWithoutDetaching($targetGroupIds);
                 if ($customer->wasRecentlyCreated) {
                     $total++;
                 }
+            } catch (\Exception $e) {
+                continue;
             }
         }
 
-        return back()->with('success', $total.__(' Customers Imported Successfully'));
+        return back()->with('success', $total . __(' Group Members Imported Successfully'));
     }
 
     public function importFromScrapeData(Request $request)
@@ -353,7 +494,7 @@ class CustomerController extends Controller
             if (isset($contact['phone_number'])) {
 
                 $phoneUtil = PhoneNumberUtil::getInstance();
-                $formattedNumber = $phoneUtil->parse($contact['phone_number'], 'BD');
+                $formattedNumber = $phoneUtil->parse($contact['phone_number'], 'ID');
 
                 $customer = Customer::updateOrCreate(
                     [
@@ -416,5 +557,58 @@ class CustomerController extends Controller
         }
 
         return back()->with('success', __('Groups Assigned Successfully'));
+    }
+
+    public function bulkVerify(Request $request, WhatsAppWebService $whatsAppWebService)
+    {
+        set_time_limit(0); 
+
+        if (env('DEMO_MODE') && auth()->user()->id == 3) {
+            return back()->with('danger', __('Permission disabled for demo account please create a test account..!'));
+        }
+        $validated = $request->validate([
+            'customer_ids' => 'required|array',
+            'customer_ids.*' => 'numeric|exists:customers,id',
+            'platform_id' => 'required|numeric|exists:platforms,id',
+        ]);
+
+        $platform = Platform::findOrFail($validated['platform_id']);
+        $customers = activeWorkspaceOwner()->customers()->whereIn('id', $validated['customer_ids'])->get();
+
+        $success = 0;
+        $failed = 0;
+
+        foreach ($customers as $customer) {
+            try {
+                $jid = $whatsAppWebService->setJid($customer->uuid);
+                $res = $whatsAppWebService->checkNumber($platform->uuid, $jid);
+
+                if ($res->successful()) {
+                    $exists = $res->json('data.0.exists') ?? false;
+                    
+                    if ($exists) {
+                        $meta = $customer->meta ?? [];
+                        $meta['is_whatsapp'] = true;
+                        $customer->update(['meta' => $meta]);
+                        $success++;
+                    } else {
+                        // Delete if not on WhatsApp
+                        $customer->delete();
+                        $failed++;
+                    }
+                } else {
+                    $failed++;
+                }
+            } catch (\Exception $e) {
+                $failed++;
+            }
+        }
+
+        $message = "$success ". __('Numbers Verified Successfully');
+        if ($failed > 0) {
+            $message .= " & " . "$failed " . __('Inactive Numbers Deleted');
+        }
+
+        return back()->with('success', $message);
     }
 }

@@ -7,7 +7,7 @@ defineOptions({ layout: UserLayout })
 const props = defineProps(['categories'])
 const form = useForm({
   title: '',
-  type: 'google_places',
+  type: 'google_maps_no_api',
   category_id: '',
   parameters: {
     country: '',
@@ -41,6 +41,14 @@ const submit = () => {
             <option v-for="category in categories" :key="category.id" :value="category.id">
               {{ category.title }}
             </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="label mb-1">{{ trans('Scraping Method') }}</label>
+          <select v-model="form.type" class="select">
+            <option value="google_places">{{ trans('Google Places API (Official)') }}</option>
+            <option value="google_maps_no_api">{{ trans('Browser Scraping (Trial/Experimental)') }}</option>
           </select>
         </div>
 

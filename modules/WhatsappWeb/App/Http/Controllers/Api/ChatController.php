@@ -27,7 +27,24 @@ class ChatController extends Controller
             'id' => $sessionId,
         ])->toArray();
 
-        return $this->chatService->getChats($params);
+        $response = $this->chatService->getChats($params);
+
+        if (isset($response['data']['chats'])) {
+            $jids = collect($response['data']['chats'])->pluck('id')->map(function ($jid) {
+                return explode('@', $jid)[0];
+            })->unique()->toArray();
+
+            $customers = \App\Models\Customer::whereIn('uuid', $jids)->get()->keyBy('uuid');
+
+            foreach ($response['data']['chats'] as &$chat) {
+                $jidPrefix = explode('@', $chat['id'])[0];
+                if (isset($customers[$jidPrefix]) && !empty($customers[$jidPrefix]->name)) {
+                    $chat['name'] = $customers[$jidPrefix]->name;
+                }
+            }
+        }
+
+        return $response;
     }
 
     public function chatMessages(Request $request, string $sessionId, string $chatId)

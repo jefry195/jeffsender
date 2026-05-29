@@ -145,11 +145,23 @@ class AutoReplyService
     private function findBestMatch(string $searchQuery): ?AutoReply
     {
         $searchTerms = explode(' ', strtolower($searchQuery));
+        $searchTerms[] = $searchQuery;
+
+        \Log::debug('WhatsappWeb: Matching keywords', [
+            'searchTerms' => $searchTerms,
+            'owner_id' => $this->platform->owner_id
+        ]);
+
         $potentialMatches = AutoReply::query()
             ->where('module', 'whatsapp-web')
             ->where('owner_id', $this->platform->owner_id)
             ->matchKeywords($searchTerms)
             ->get();
+
+        \Log::debug('WhatsappWeb: Potential matches found', [
+            'count' => $potentialMatches->count(),
+            'ids' => $potentialMatches->pluck('id')
+        ]);
 
         $bestMatch = null;
         $maxMatchCount = 0;

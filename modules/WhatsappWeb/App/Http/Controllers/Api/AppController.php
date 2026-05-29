@@ -25,7 +25,6 @@ class AppController extends Controller
                 Rule::requiredIf(function () use ($request) {
                     return in_array($request->get('type'), ['image', 'audio', 'video', 'document']);
                 }),
-                'url',
             ],
         ]);
 

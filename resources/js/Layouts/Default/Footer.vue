@@ -14,7 +14,10 @@ const subscribe = () => {
   form.post(route('newsletter.subscribe'))
 }
 const isExternalAuth = (href) => {
-  return ['/login', '/register'].some((path) => href.endsWith(path))
+  if (!href) return false
+  return ['/login', '/register', '/dashboard', '/user/dashboard'].some((path) =>
+    href.includes(path)
+  )
 }
 </script>
 <template>

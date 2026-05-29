@@ -32,10 +32,10 @@ const toggleMenu = () => {
         <div class="row align-items-center">
           <div class="col-6">
             <div class="header-signin-logo">
-              <Link v-if="currentRouteGroup('Auth', false)" :href="route('home')">
+              <a v-if="currentRouteGroup('Auth', false)" :href="route('home')">
                 <img :src="$page.props.primaryData?.logo" alt="" style="max-height: 40px;" />
-              </Link>
-              <Link v-else :href="route('home')"><img :src="$page.props.primaryData?.logo" alt="" style="max-height: 40px;" /></Link>
+              </a>
+              <a v-else :href="route('home')"><img :src="$page.props.primaryData?.logo" alt="" style="max-height: 40px;" /></a>
             </div>
           </div>
           <div class="col-6">
@@ -73,12 +73,12 @@ const toggleMenu = () => {
             <div class="header-bottom__right d-flex align-items-center justify-content-end">
               <div class="header-bottom__action header-bottom__action-4">
                 <template v-if="authUser">
-                  <Link
+                  <a
                     class="d-none d-lg-inline-block header-bottom__action-2 border-none"
                     :href="authUser.role == 'admin' ? route('admin.dashboard') : route('user.dashboard')"
                   >
                     <span>{{ trans('Dashboard') }}</span>
-                  </Link>
+                  </a>
                 </template>
 
                 <template v-if="!authUser">

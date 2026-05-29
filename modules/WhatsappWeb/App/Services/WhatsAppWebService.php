@@ -14,7 +14,7 @@ class WhatsAppWebService
     {
         $baseApiUrl = Config::get('whatsapp-web.base_url') ?? '';
 
-        return Http::baseUrl(url: $baseApiUrl)->withHeaders([
+        return Http::baseUrl(url: $baseApiUrl)->timeout(300)->withHeaders([
             'X-API-Key' => '12345',
         ]);
     }
@@ -114,29 +114,29 @@ class WhatsAppWebService
                 ],
             ],
             'video' => [
-                'video' => ['url' => $message['video']],
+                'video' => ['url' => $this->resolveMediaUrl($message['video'])],
                 'caption' => $message['caption'] ?? null,
                 'gifPlayback' => $message['gifPlayback'] == 1 ? true : false,
                 'ptv' => false,
             ],
             'audio' => [
-                'audio' => ['url' => $message['audio']],
+                'audio' => ['url' => $this->resolveMediaUrl($message['audio'])],
                 'mimetype' => 'audio/mp4',
                 'ptt' => false,
             ],
             'voice' => [
                 'audio' => [
-                    'url' => $message['voice'],
+                    'url' => $this->resolveMediaUrl($message['voice']),
                 ],
                 'mimetype' => 'audio/ogg',
                 'ptt' => true,
             ],
             'image' => [
-                'image' => ['url' => $message['image']],
+                'image' => ['url' => $this->resolveMediaUrl($message['image'])],
                 'caption' => $message['caption'] ?? null,
             ],
             'document' => [
-                'document' => ['url' => $message['document']],
+                'document' => ['url' => $this->resolveMediaUrl($message['document'])],
                 'caption' => $message['caption'] ?? null,
             ],
             'poll' => [
@@ -145,6 +145,20 @@ class WhatsAppWebService
                     'values' => $message['values'],
                     'selectableCount' => $message['selectableCount'] ?? 1,
                 ],
+            ],
+            'template' => match (true) {
+                isset($message['text']) => ['text' => $this->replaceShortCodes($message['text'], $jid)],
+                isset($message['image']) => ['image' => ['url' => $this->resolveMediaUrl($message['image'])], 'caption' => $message['caption'] ?? null],
+                isset($message['video']) => ['video' => ['url' => $this->resolveMediaUrl($message['video'])], 'caption' => $message['caption'] ?? null],
+                isset($message['document']) => ['document' => ['url' => $this->resolveMediaUrl($message['document'])], 'caption' => $message['caption'] ?? null],
+                isset($message['audio']) => ['audio' => ['url' => $this->resolveMediaUrl($message['audio'])], 'mimetype' => 'audio/mp4'],
+                isset($message['location']) => ['location' => ['degreesLatitude' => $message['latitude'], 'degreesLongitude' => $message['longitude']]],
+                default => throw new \InvalidArgumentException("Unsupported template message format"),
+            },
+            'list' => [
+                'text' => $message['text'] ?? '',
+                'buttonText' => $message['button_text'] ?? 'Select Option',
+                'sections' => $message['sections'] ?? [],
             ],
             default => throw new \InvalidArgumentException("Unsupported message type: {$messageType}"),
         };
@@ -156,6 +170,39 @@ class WhatsAppWebService
         }
 
         return $response;
+    }
+
+    private function resolveMediaUrl($url)
+    {
+        if (empty($url)) {
+            return $url;
+        }
+
+        // If it's already an absolute path (starts with / or C:\)
+        if (str_starts_with($url, '/') || str_contains($url, ':\\')) {
+            if (file_exists($url)) {
+                return $url;
+            }
+        }
+
+        // Parse the URL to get the path segment (e.g. /uploads/...)
+        $parsedUrl = parse_url($url, PHP_URL_PATH);
+        if ($parsedUrl) {
+            // Check if it exists in public directory
+            $path = public_path(ltrim($parsedUrl, '/'));
+            if (file_exists($path)) {
+                return $path;
+            }
+
+            // Handle cases where the path might have /storage prefix but mapped differently
+            $relativePath = str_replace('/storage/', '/', $parsedUrl);
+            $pathAlt = public_path(ltrim($relativePath, '/'));
+            if (file_exists($pathAlt)) {
+                return $pathAlt;
+            }
+        }
+
+        return $url;
     }
 
     private function addPlatformLog($sessionId, $messageType, $response)
@@ -197,9 +244,14 @@ class WhatsAppWebService
         ])->json();
     }
 
-    public function getGroupMeta(string $sessionId, string $groupId, array $queryParams = [])
+    public function getGroups(string $sessionId)
     {
-        return $this->apiClient()->get("$sessionId/groups/$groupId", $queryParams)->json();
+        return $this->apiClient()->get('/groups', ['id' => $sessionId])->json();
+    }
+
+    public function getGroupMetaData(string $sessionId, string $groupId)
+    {
+        return $this->apiClient()->get("/groups/meta/{$groupId}", ['id' => $sessionId])->json();
     }
 
     public function getMediaBuffer(string $sessionId, string $remoteJid, string $messageId): Response

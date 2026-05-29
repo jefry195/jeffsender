@@ -24,8 +24,8 @@ const form = useForm({
   message_template: '',
   is_scheduled: false,
   schedule_at: null,
-  timezone: 'Asia/Dhaka',
-  delay_between: [1, 100]
+  timezone: 'Asia/Makassar',
+  delay_between: [15, 60]
 })
 
 const submitForm = () => {

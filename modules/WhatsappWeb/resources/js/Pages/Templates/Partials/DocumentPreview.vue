@@ -37,6 +37,6 @@ const { textExcerpt } = sharedComposable()
       <Icon icon="bx:download" class="col-span-1 text-lg" />
     </div>
 
-    <p class="mt-1 p-1 text-sm leading-3">{{ previewCaption }}</p>
+    <p class="mt-1 p-1 text-sm leading-3 whitespace-pre-wrap">{{ previewCaption }}</p>
   </div>
 </template>

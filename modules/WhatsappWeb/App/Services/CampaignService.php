@@ -14,6 +14,9 @@ class CampaignService
      */
     public static function send(Campaign $campaign): array
     {
+        set_time_limit(0);
+        ignore_user_abort(true);
+
         ini_set('max_execution_time', count($campaign->group->customers) * $campaign->delay_between[1]);
         $customers = $campaign->group->customers;
         $whatsappClient = new WhatsAppWebService;
@@ -22,7 +25,11 @@ class CampaignService
 
         foreach ($customers as $key => $customer) {
 
-            $randomDelay = Arr::random($campaign->delay_between);
+            $delayArr = $campaign->delay_between ?? [10, 60];
+            $min = min($delayArr);
+            $max = max($delayArr);
+            $randomDelay = rand($min, $max);
+
             if ($key > 0) {
                 sleep($randomDelay);
             }
@@ -51,7 +58,7 @@ class CampaignService
             ];
 
             if ($res->failed() && env('APP_DEBUG')) {
-                dd([
+                \Log::error('Campaign Message Failed', [
                     'request' => $payload,
                     'response' => $res->json(),
                 ]);

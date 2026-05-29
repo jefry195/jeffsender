@@ -45,46 +45,46 @@ const isHomePage = computed(() => {
       <div class="top-header position-relative">
         <div class="d-flex align-items-center justify-content-between">
           <div class="logo order-lg-0">
-            <Link href="/" class="d-flex align-items-center">
+            <a href="/" class="d-flex align-items-center">
               <img
                 :src="primarySettings?.deep_logo ?? '/assets/frontend/images/logo/logo_03.svg'"
                 alt=""
                 style="max-height: 45px;"
               />
-            </Link>
+            </a>
           </div>
           <!-- logo -->
           <div class="right-widget ms-lg-0 me-lg-0 order-lg-3 me-3 ms-auto">
             <ul class="d-flex align-items-center style-none">
               <template v-if="isLoggedIn">
                 <li class="d-none d-md-inline-block ms-lg-5 ms-3">
-                  <Link :href="route('user.dashboard')" class="signup-btn-one icon-link version-three">
+                  <a :href="route('user.dashboard')" class="signup-btn-one icon-link version-three">
                     <span>{{ trans('Dashboard') }}</span>
-                  </Link>
+                  </a>
                 </li>
               </template>
               <template v-else>
                 <template v-if="isHomePage">
                   <li class="d-flex align-items-center">
                     <img src="/assets/frontend/images/icon/icon_28.svg" alt="" class="icon me-2" />
-                    <Link :href="route('login')" class="fw-500">{{ trans('Login') }}</Link>
+                    <a :href="route('login')" class="fw-500">{{ trans('Login') }}</a>
                   </li>
                   <li class="d-none d-md-inline-block ms-lg-4 ms-3">
-                    <Link :href="route('register')" class="signup-btn-three icon-link">
+                    <a :href="route('register')" class="signup-btn-three icon-link">
                       <span>{{ trans('Sign Up') }}</span>
-                    </Link>
+                    </a>
                   </li>
                 </template>
 
                 <template v-else>
                   <li class="d-flex align-items-center me-lg-4 me-3">
                     <img src="/assets/frontend/images/icon/icon_28.svg" alt="" class="icon me-2" />
-                    <Link :href="route('login')" class="fw-500">{{ trans('Login') }}</Link>
+                    <a :href="route('login')" class="fw-500">{{ trans('Login') }}</a>
                   </li>
                   <li class="d-none d-md-block">
-                    <Link :href="route('register')" class="fw-500 signup-btn-one version-three">{{
+                    <a :href="route('register')" class="fw-500 signup-btn-one version-three">{{
                       trans('Signup')
-                    }}</Link>
+                    }}</a>
                   </li>
                 </template>
               </template>

@@ -43,6 +43,7 @@ class PlanPerks
             'campaign' => true,
             'auto_reply' => true,
             'quick_reply' => true,
+            'group_extractor' => true,
             default => null,
         };
     }
@@ -75,7 +76,7 @@ class PlanPerks
         $planValue = $user->plan_data[$planKey]['value'] ?? null;
 
         if ($planValue === -1) {
-            return true;
+            return self::$responseAsArray ? ['status' => 'success', 'message' => 'Unlimited'] : true;
         }
 
         if (is_bool($planValue) && boolval($planValue) === false) {
@@ -86,7 +87,7 @@ class PlanPerks
             return self::resolveResponse(['status' => 'error', 'message' => 'You have reached your '.$planKey.' limit. Please upgrade your plan.']);
         }
 
-        return true;
+        return self::$responseAsArray ? ['status' => 'success', 'message' => 'Available'] : true;
     }
 
     private static function resolveResponse($responseMsg)

@@ -76,8 +76,8 @@ const getFieldType = (field, value) => {
   if (['video', 'image', 'audio', 'document'].includes(field)) return 'file'
   if (typeof value === 'boolean' || field === 'gifPlayback') return 'checkbox'
   if (typeof value === 'number') return 'number'
-  if (['latitude', 'longitude', 'name', 'caption'].includes(field)) return 'input'
-  if (field === 'text') return 'textarea'
+  if (['latitude', 'longitude', 'name'].includes(field)) return 'input'
+  if (['text', 'caption'].includes(field)) return 'textarea'
   return 'input'
 }
 
@@ -214,7 +214,7 @@ const textTransformButtons = [
 
           <div v-else>
             <label class="label mb-1 block capitalize">{{ field }}</label>
-            <div v-if="field === 'text'">
+            <div v-if="['text', 'caption'].includes(field)">
               <button
                 v-for="btn in textTransformButtons"
                 :key="btn.label"
@@ -229,6 +229,7 @@ const textTransformButtons = [
               v-model="form.meta[field]"
               :name="`meta.${field}`"
               class="textarea mt-2"
+              :rows="field === 'caption' ? 5 : 3"
             ></textarea>
             <ShortCodes v-model="form.meta[field]" />
           </div>

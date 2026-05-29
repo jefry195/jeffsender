@@ -12,7 +12,7 @@ const imageUrl = computed(
 <template>
   <div class="rounded-lg bg-white p-1 dark:bg-dark-700">
     <img class="rounded-lg" :src="imageUrl" alt="Preview image" />
-    <p class="-mb-1 mt-1 p-1 text-sm leading-3">{{ previewCaption }}</p>
+    <p class="-mb-1 mt-1 p-1 text-sm leading-3 whitespace-pre-wrap">{{ previewCaption }}</p>
     <p class="text-end text-[10px] text-gray-400">{{ new Date().toLocaleTimeString() }}</p>
   </div>
 </template>

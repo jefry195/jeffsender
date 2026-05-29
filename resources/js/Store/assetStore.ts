@@ -78,7 +78,7 @@ export const useAssetStore = defineStore('asset', {
       }
 
       axios
-        .get(route('api-assets-all', { file_type, page: 1 }))
+        .get('/api/assets-all', { params: { file_type, page: 1 } })
         .then((res) => {
           this.allAssets.data = res.data.data
           if (res.data.data?.length > 0) {
@@ -103,11 +103,9 @@ export const useAssetStore = defineStore('asset', {
       this.allAssets.loadMore = true
       this.allAssets.loading = true
       axios
-        .get(
-          route('api-assets-all', {
-            page: this.allAssets.currentPage, file_type: this.events.load
-          })
-        )
+        .get('/api/assets-all', {
+            params: { page: this.allAssets.currentPage, file_type: this.events.load }
+        })
         .then((res) => {
           this.allAssets.data.push(...res.data.data)
           this.allAssets.currentPage = res.data.current_page
@@ -153,10 +151,11 @@ export const useAssetStore = defineStore('asset', {
           },
           onSuccess: () => {
             this.files = []
-            axios.get(route('api-assets-all', { newest: this.allAssets.newest, file_type: this.events.load })).then((res) => {
-              if (res.data?.length > 0) {
-                this.allAssets.newest = res.data[0].id
-                this.allAssets.data.unshift(...res.data)
+            axios.get('/api/assets-all', { params: { newest: this.allAssets.newest, file_type: this.events.load } }).then((res) => {
+              const assets = Array.isArray(res.data) ? res.data : res.data?.data;
+              if (assets && assets.length > 0) {
+                this.allAssets.newest = assets[0].id
+                this.allAssets.data.unshift(...assets)
               }
             })
           }

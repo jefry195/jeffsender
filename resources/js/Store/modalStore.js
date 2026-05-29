@@ -1,4 +1,10 @@
 import { defineStore } from 'pinia'
+import { router } from '@inertiajs/vue3'
+
+// Reset body overflow on every Inertia navigation to prevent scroll lock leaks
+router.on('start', () => {
+  document.body.style.overflow = ''
+})
 
 export const useModalStore = defineStore({
   id: 'modal',
@@ -18,24 +24,40 @@ export const useModalStore = defineStore({
     open(key) {
       const validKey = this.validateKey(key)
 
-      if (this.states.hasOwnProperty(validKey) && this.states[validKey]) {
-        return (this.states[validKey] = false)
+      // Toggle: if already open, close it
+      if (this.states[validKey] === true) {
+        this.states[validKey] = false
+        // Only restore scroll if no other modals are open
+        const anyOpen = Object.values(this.states).some(v => v === true)
+        if (!anyOpen) {
+          document.body.style.overflow = ''
+        }
+        return
       }
 
       this.states[validKey] = true
       document.body.style.overflow = 'hidden'
     },
     close(key = null) {
-      document.body.style.overflow = ''
-      if (typeof key !== 'string') return this.$reset()
+      if (typeof key !== 'string') {
+        this.$reset()
+        document.body.style.overflow = ''
+        return
+      }
 
       if (key) {
         const validKey = this.validateKey(key)
         if (this.states.hasOwnProperty(validKey)) {
-          return (this.states[validKey] = false)
+          this.states[validKey] = false
         }
       } else {
         this.$reset()
+      }
+
+      // Only restore scroll if no other modals are open
+      const anyOpen = Object.values(this.states).some(v => v === true)
+      if (!anyOpen) {
+        document.body.style.overflow = ''
       }
     }
   },

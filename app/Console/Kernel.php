@@ -12,7 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // write your custom command
+        $schedule->command('model:prune')->daily();
+        $schedule->command('sheets:check-status')->everyMinute();
     }
 
     /**

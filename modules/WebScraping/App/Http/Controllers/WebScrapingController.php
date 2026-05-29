@@ -4,6 +4,9 @@ namespace Modules\WebScraping\App\Http\Controllers;
 
 use Inertia\Inertia;
 use App\Models\Category;
+use App\Models\Customer;
+use App\Models\Group;
+use App\Models\Platform;
 use App\Helpers\PageHeader;
 use App\Models\WebScraping;
 use Illuminate\Http\Request;
@@ -13,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Maatwebsite\Excel\Facades\Excel;
 use Modules\WebScraping\App\Exports\WebScrapedDataExport;
+use Modules\WhatsappWeb\App\Services\WhatsAppWebService;
 
 class WebScrapingController extends Controller
 {
@@ -80,7 +84,7 @@ class WebScrapingController extends Controller
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'type' => 'required|string|in:google_places',
+            'type' => 'required|string|in:google_places,google_maps_no_api',
             'category_id' => 'required|numeric',
             'parameters' => 'required|array',
             'parameters.city' => 'required|string',
@@ -98,6 +102,9 @@ class WebScrapingController extends Controller
         PageHeader::set(
             title: 'Web Scraping',
         );
+
+        $user = Auth::user();
+
         $record = WebScraping::where('uuid', $uuid)
             ->where('module', 'whatsapp-web')
             ->where('user_id', activeWorkspaceOwnerId())
@@ -106,9 +113,23 @@ class WebScrapingController extends Controller
         $scraped_data = WebScrapedData::where('web_scraping_id', $record->id)
             ->paginate();
 
+        // Untuk modal import
+        $groups = $user->groups()
+            ->whatsappWeb()
+            ->select('id as value', 'name as label')
+            ->latest()
+            ->get();
+
+        $platforms = $user->platforms()
+            ->whatsappWeb()
+            ->select(['id as value', 'name as label', 'uuid'])
+            ->get();
+
         return Inertia::render('WebScraping/Show', [
-            'record' => $record,
-            'scraped_data' => $scraped_data
+            'record'       => $record,
+            'scraped_data' => $scraped_data,
+            'groups'       => $groups,
+            'platforms'    => $platforms,
         ]);
     }
 
@@ -176,15 +197,160 @@ class WebScrapingController extends Controller
             ->where('user_id', activeWorkspaceOwnerId())
             ->firstOrFail();
 
-        $fileName = 'scraped_data_' . now() . '.csv';
+        $fileName = 'scraped_data_' . now() . '.xlsx';
 
         return Excel::download(
             new WebScrapedDataExport($record->id),
             $fileName,
-            \Maatwebsite\Excel\Excel::CSV,
-            [
-                'Content-Type' => 'text/csv',
-            ]
+            \Maatwebsite\Excel\Excel::XLSX
         );
+    }
+
+    /**
+     * Import data scraping ke Audience/Customer.
+     * - Normalisasi nomor ke format 62 (Indonesia)
+     * - Filter nomor rumah (fixed-line) / nomor tidak valid
+     * - Opsional: cek via WhatsApp number checker sebelum import
+     */
+    public function importToAudience(Request $request, WhatsAppWebService $waService)
+    {
+        $request->validate([
+            'scraping_id'   => ['required', 'numeric', 'exists:web_scrapings,id'],
+            'group_ids'     => ['required', 'array', 'min:1'],
+            'group_ids.*'   => ['numeric', 'exists:groups,id'],
+            'check_wa'      => ['boolean'],
+            'platform_id'   => ['nullable', 'numeric', 'exists:platforms,id'],
+        ]);
+
+        $ownerId    = activeWorkspaceOwnerId();
+        $record     = WebScraping::where('id', $request->scraping_id)
+            ->where('user_id', $ownerId)
+            ->firstOrFail();
+
+        $scrapedItems = WebScrapedData::where('web_scraping_id', $record->id)->get();
+        $platform     = $request->check_wa && $request->platform_id
+            ? Platform::findOrFail($request->platform_id)
+            : null;
+
+        $imported  = 0;
+        $updated   = 0;
+        $skipped   = 0;
+        $notOnWa   = 0;
+
+        foreach ($scrapedItems as $item) {
+            $contact = $item->data;
+            $rawPhone = $contact['phone_number'] ?? null;
+
+            // 1. Lewati jika tidak ada nomor
+            if (empty($rawPhone)) {
+                $skipped++;
+                continue;
+            }
+
+            // 2. Normalisasi nomor ke format 62xxxxxxxxxx
+            $phone = $this->normalizePhoneNumber($rawPhone);
+
+            // 3. Filter nomor tidak valid (nomor rumah, terlalu pendek, dll)
+            if (! $this->isValidMobileNumber($phone)) {
+                $skipped++;
+                continue;
+            }
+
+            // 4. Opsional: cek apakah nomor ada di WhatsApp
+            if ($platform) {
+                try {
+                    $jid = $waService->setJid($phone);
+                    $res = $waService->checkNumber($platform->uuid, $jid);
+
+                    if ($res->successful()) {
+                        $exists = $res->json('data.0.exists') ?? false;
+                        if (!$exists) {
+                            $notOnWa++;
+                            continue; // Tidak import jika terkonfirmasi bukan WA
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Jika checker error (server down/auth fail), lanjutkan import saja
+                    \Log::error('WA Checker Error: ' . $e->getMessage());
+                }
+
+                usleep(300000); // Jeda 300ms antar request ke WA server
+            }
+
+            // 5. Simpan ke tabel customers
+            $customer = Customer::updateOrCreate(
+                [
+                    'module'   => 'whatsapp-web',
+                    'owner_id' => $ownerId,
+                    'uuid'     => $phone,
+                ],
+                [
+                    'name'    => $contact['name'] ?? 'Unknown',
+                    'picture' => null,
+                    'meta'    => [
+                        'dial_code'   => 62,
+                        'phone'       => ltrim($phone, '62'),
+                        'source'      => 'google_maps_scraper',
+                        'email'       => $contact['email'] ?? null,
+                        'website'     => $contact['website'] ?? null,
+                        'is_whatsapp' => $platform ? true : null,
+                    ],
+                ]
+            );
+
+            $customer->groups()->syncWithoutDetaching($request->group_ids);
+
+            if ($customer->wasRecentlyCreated) {
+                $imported++;
+            } else {
+                $updated++;
+            }
+        }
+
+        $message = "Berhasil: {$imported} baru, {$updated} diperbarui.";
+        if ($skipped > 0)   $message .= " {$skipped} non-HP/Kosong dilewati.";
+        if ($notOnWa > 0)   $message .= " {$notOnWa} terdeteksi bukan WA.";
+
+        return back()->with('success', $message);
+    }
+
+    /**
+     * Normalisasi nomor telepon ke format 62xxxxxxxxxx
+     */
+    private function normalizePhoneNumber(string $phone): string
+    {
+        // Hapus SEMUA karakter non-digit
+        $phone = preg_replace('/\D/', '', $phone);
+
+        // Jika diawali 0, ganti dengan 62
+        if (str_starts_with($phone, '0')) {
+            $phone = '62' . substr($phone, 1);
+        }
+
+        // Jika tidak diawali 62 tapi diawali 8 (misal: 812...), tambahkan 62
+        if (str_starts_with($phone, '8') && !str_starts_with($phone, '62')) {
+            $phone = '62' . $phone;
+        }
+
+        return $phone;
+    }
+
+    /**
+     * Validasi nomor ponsel Indonesia.
+     * Nomor ponsel Indonesia pasti diawali 628... (setelah normalisasi)
+     */
+    private function isValidMobileNumber(string $phone): bool
+    {
+        // Minimal 10 digit (628 + 7 digit), Maksimal 15 digit
+        if (strlen($phone) < 10 || strlen($phone) > 15) {
+            return false;
+        }
+
+        // Harus diawali 628...
+        if (!str_starts_with($phone, '628')) {
+            return false;
+        }
+
+        return true;
     }
 }

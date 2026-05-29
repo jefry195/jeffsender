@@ -2,59 +2,71 @@
 
 namespace Modules\WebScraping\App\Http\Controllers\Api;
 
-use App\Helpers\Toastr;
 use App\Http\Controllers\Controller;
-use App\Models\Category;
 use App\Models\WebScraping;
+use App\Models\WebScrapedData;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
+use Modules\WebScraping\App\Jobs\ScrapeJob;
 
 class WebScrapingController extends Controller
 {
-
-    public function index($uuid)
+    /**
+     * Mulai scraping sebagai background job, langsung return tanpa menunggu.
+     */
+    public function start($uuid)
     {
-        validateUserPlan('web_scrape', true);
+        $planCheck = validateUserPlan('web_scrape', true);
+        if (is_array($planCheck) && $planCheck['status'] === 'error') {
+            return response()->json(['error' => $planCheck['message']], 403);
+        }
 
         $record = WebScraping::where('uuid', $uuid)
-            ->with('scraped_data')
             ->where('module', 'whatsapp-web')
             ->where('user_id', activeWorkspaceOwnerId())
             ->firstOrFail();
+
+        // Jangan mulai ulang jika sedang berjalan
+        if ($record->status === 'in_progress') {
+            return response()->json(['status' => 'in_progress', 'message' => 'Scraping sedang berjalan...']);
+        }
+
         $record->update(['status' => 'in_progress']);
-        $category = Category::where('id', $record->category_id)->first();
-        $query = "{$category->title}+in+{$record->parameters['state']}+{$record->parameters['city']}+{$record->parameters['country']}";
+        // Hapus data lama jika mau re-scrape
+        $record->scraped_data()->delete();
 
-        $url = 'https://maps.googleapis.com/maps/api/place/textsearch/json';
+        ScrapeJob::dispatch($record);
 
-        $response = Http::get($url, [
-            'query' => $query,
-            'pagetoken' => request('next_page_token'),
-            'key' => env('GOOGLE_PLACE_API_KEY'),
-        ])->throw()->json();
-        $filteredData = array_map(function ($result) use ($record) {
-            $item = [
-                'name' => $result['name'],
-                'business_status' => $result['business_status'],
-                'formatted_address' => $result['formatted_address'],
-                'location' => $result['geometry']['location'],
-                'place_id' => $result['place_id'],
-                'rating' => $result['rating'],
-                'types' => $result['types'],
-                'website' => $result['website'] ?? null,
-                'icon' => [
-                    $result['icon'],
-                    $result['icon_background_color'],
-                    $result['icon_mask_base_uri']
-                ]
-            ];
-            $record->scraped_data()->updateOrCreate(['unique_id' => $result['place_id']], ['data' => $item]);
-            return $item;
-        }, $response['results'] ?? []);
-        $record->increment('query_count');
         return response()->json([
-            'data' => $filteredData,
-            'next_page_token' => $response['next_page_token'] ?? null,
+            'status'  => 'queued',
+            'message' => 'Scraping dimulai di latar belakang. Anda bisa membuka halaman lain.',
         ]);
+    }
+
+    /**
+     * Cek status scraping dan ambil data jika sudah selesai.
+     */
+    public function status($uuid)
+    {
+        $record = WebScraping::where('uuid', $uuid)
+            ->where('module', 'whatsapp-web')
+            ->where('user_id', activeWorkspaceOwnerId())
+            ->firstOrFail();
+
+        $response = [
+            'status'      => $record->status,
+            'query_count' => $record->query_count,
+            'total'       => $record->scraped_data()->count(),
+        ];
+
+        // Kirim data saat sudah selesai
+        if ($record->status === 'completed' || $record->status === 'failed') {
+            if ($record->status === 'completed') {
+                $response['data'] = WebScrapedData::where('web_scraping_id', $record->id)
+                    ->get()
+                    ->map(fn($item) => ['id' => $item->id, ...$item->data]);
+            }
+        }
+
+        return response()->json($response);
     }
 }

@@ -176,8 +176,8 @@ class CampaignController extends Controller
             $alertMessage = __('Campaign has been scheduled successfully');
         } else {
             try {
-                CampaignService::send($campaign);
-                $alertMessage = __('Campaign has been sent successfully');
+                \Modules\WhatsappWeb\App\Jobs\CampaignSendJob::dispatch($campaign);
+                $alertMessage = __('Campaign has been queued for sending');
             } catch (\Throwable $th) {
                 return back()->with('danger', $th->getMessage());
             }
@@ -246,7 +246,7 @@ class CampaignController extends Controller
     public function edit(Campaign $campaign)
     {
         try {
-            CampaignService::send($campaign);
+            \Modules\WhatsappWeb\App\Jobs\CampaignSendJob::dispatch($campaign);
         } catch (\Throwable $th) {
             return back()->with('danger', $th->getMessage());
         }

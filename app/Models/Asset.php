@@ -43,7 +43,11 @@ class Asset extends Model
     {
         return Attribute::make(
             get: function () {
-                return Number::fileSize($this->getAttribute('file_size'), 2);
+                $size = $this->getAttribute('file_size');
+                if ($size === null || $size === '') {
+                    return '0 B';
+                }
+                return Number::fileSize($size, 2);
             }
         )->shouldCache();
     }
@@ -52,8 +56,11 @@ class Asset extends Model
     {
         return Attribute::make(
             get: function () {
-                $mime = $this->mime_type; // image/jpeg
-                return Str::before($mime, '/'); // image
+                $mime = $this->mime_type;
+                if (!$mime) {
+                    return 'other';
+                }
+                return Str::before($mime, '/');
             }
         )->shouldCache();
     }

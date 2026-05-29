@@ -19,8 +19,8 @@ import {
 } from './../whatsapp.js'
 import response from './../response.js'
 
-const getList = (req, res) => {
-    return response(res, 200, true, '', getChatList(res.locals.sessionId, true))
+const getList = async (req, res) => {
+    return response(res, 200, true, '', await getChatList(res.locals.sessionId, true))
 }
 
 const getListWithoutParticipants = async (req, res) => {

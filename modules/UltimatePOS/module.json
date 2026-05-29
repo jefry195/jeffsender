@@ -1,11 +1,14 @@
 {
     "name": "UltimatePOS",
     "alias": "ultimatepos",
-    "description": "",
+    "description": "Integration with UltimatePOS to auto reply billing info.",
     "keywords": [],
     "priority": 0,
-    "providers": [
-        
-    ],
-    "files": []
+    "providers": [],
+    "files": [],
+    "accessible": true,
+    "version": "1.0",
+    "module_type": "Features",
+    "service_type": "auto_reply",
+    "menu": []
 }

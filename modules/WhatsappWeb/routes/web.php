@@ -27,10 +27,13 @@ Route::group(['middleware' => ['auth', 'user', 'access_module:whatsapp-web']], f
 
     // customers
     Route::post('customers/import-from-device', [MODULE\CustomerController::class, 'importFromDevice'])->name('customers.import-from-device');
+    Route::get('customers/groups-by-platform', [MODULE\CustomerController::class, 'getGroupsByPlatform'])->name('customers.groups-by-platform');
+    Route::post('customers/import-from-group', [MODULE\CustomerController::class, 'importFromGroup'])->name('customers.import-from-group');
     Route::post('customers/import-from-scraping', [MODULE\CustomerController::class, 'importFromScrapeData'])
         ->name('customers.import-from-scraping');
     Route::post('customers/bulk-import', [MODULE\CustomerController::class, 'bulkImport'])->name('customers.bulk-import');
     Route::post('customers/bulk-delete', [MODULE\CustomerController::class, 'bulkDelete'])->name('customers.bulk-delete');
+    Route::post('customers/bulk-verify', [MODULE\CustomerController::class, 'bulkVerify'])->name('customers.bulk-verify');
     Route::post('customers/bulk-assign-group', [MODULE\CustomerController::class, 'bulkAssignGroup'])->name('customers.bulk-assign-group');
     Route::resource('customers', MODULE\CustomerController::class);
 

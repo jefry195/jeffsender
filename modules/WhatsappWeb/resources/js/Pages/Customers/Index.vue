@@ -28,6 +28,38 @@ const importFromScrapeDataForm = useForm({
   scraped_record_ids: [],
   group_ids: []
 })
+const groupHarvesterForm = useForm({
+  platform_id: null,
+  wa_group_id: '',
+  group_ids: []
+})
+
+const waGroups = ref([])
+const fetchingWaGroups = ref(false)
+
+const fetchWaGroups = async () => {
+  if (!groupHarvesterForm.platform_id) return
+  fetchingWaGroups.value = true
+  try {
+    const response = await axios.get(route('user.whatsapp-web.customers.groups-by-platform'), {
+      params: { platform_id: groupHarvesterForm.platform_id }
+    })
+    waGroups.value = response.data.map(g => ({ value: g.id, label: g.name || g.id }))
+  } catch (error) {
+    toast.error('Failed to fetch groups from device')
+  } finally {
+    fetchingWaGroups.value = false
+  }
+}
+
+const groupHarvesterSubmit = () => {
+  groupHarvesterForm.post(route('user.whatsapp-web.customers.import-from-group'), {
+    onSuccess: () => {
+      modal.close('groupHarvesterModal')
+      groupHarvesterForm.reset()
+    }
+  })
+}
 
 const importFromCsvFrom = useForm({
   csv_file: null,
@@ -124,6 +156,31 @@ const bulkAssignGroups = () => {
   })
 }
 
+const bulkVerifyForm = useForm({
+  customer_ids: [],
+  platform_id: null
+})
+
+const bulkVerifyCustomers = () => {
+  if (selectedCustomers.value.length === 0) {
+    toast.error('Please select at least one customer to verify.')
+    return
+  }
+  if (!bulkVerifyForm.platform_id) {
+    toast.error('Please select a device to verify.')
+    return
+  }
+
+  bulkVerifyForm.customer_ids = selectedCustomers.value
+  bulkVerifyForm.post(route('user.whatsapp-web.customers.bulk-verify'), {
+    onSuccess: () => {
+      modal.close('bulkVerifyModal')
+      selectedCustomers.value = []
+      bulkVerifyForm.reset()
+    }
+  })
+}
+
 const filterOptions = [
   {
     label: 'Name',
@@ -134,11 +191,18 @@ const filterOptions = [
     value: 'uuid'
   }
 ]
+
+const selectedGroupFilter = ref(new URLSearchParams(window.location.search).get('group_id') || '')
 const rowCount = ref(new URLSearchParams(window.location.search).get('rows') || '25')
 
-const changeRows = () => {
+const changeFilters = () => {
   const params = new URLSearchParams(window.location.search)
   params.set('rows', rowCount.value)
+  if (selectedGroupFilter.value) {
+    params.set('group_id', selectedGroupFilter.value)
+  } else {
+    params.delete('group_id')
+  }
   params.set('page', 1)
   
   const searchParams = Object.fromEntries(params.entries())
@@ -147,12 +211,28 @@ const changeRows = () => {
     replace: true 
   })
 }
+
+const changeRows = () => {
+  changeFilters()
+}
 </script>
 
 <template>
   <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
     <div class="flex items-center gap-4">
       <FilterDropdown :options="filterOptions" />
+      
+      <!-- Filter Group -->
+      <div class="flex items-center gap-2">
+        <label for="group_filter" class="text-sm font-medium text-slate-500 whitespace-nowrap">{{ trans('Group') }}</label>
+        <select id="group_filter" v-model="selectedGroupFilter" @change="changeFilters" class="select !py-1.5 !px-3 !min-w-[150px]">
+          <option value="">{{ trans('Semua Group') }}</option>
+          <option v-for="group in groups" :key="group.value" :value="group.value">
+            {{ group.label }}
+          </option>
+        </select>
+      </div>
+
       <div class="flex items-center gap-2">
         <label for="rows" class="text-sm font-medium text-slate-500 whitespace-nowrap">{{ trans('Tampilkan') }}</label>
         <select id="rows" v-model="rowCount" @change="changeRows" class="select !py-1.5 !px-3 !w-24">
@@ -168,6 +248,10 @@ const changeRows = () => {
       <button @click="bulkDeleteCustomers" :disabled="selectedCustomers.length === 0" class="btn btn-danger">
         <Icon icon="bx:trash" />
         {{ trans('Bulk Delete') }}
+      </button>
+      <button @click="modal.open('bulkVerifyModal')" :disabled="selectedCustomers.length === 0" class="btn btn-success">
+        <Icon icon="bx:check-shield" />
+        {{ trans('Verify WhatsApp') }}
       </button>
       <button @click="modal.open('bulkAssignGroupModal')" :disabled="selectedCustomers.length === 0"
         class="btn btn-primary">
@@ -206,7 +290,15 @@ const changeRows = () => {
             </div>
           </td>
           <td>
-            {{ customer.uuid }}
+            <div class="flex items-center gap-2">
+              {{ customer.uuid }}
+              <span v-if="customer.meta?.is_whatsapp === true" class="badge badge-success text-[10px] py-0.5 px-1">
+                WA
+              </span>
+              <span v-else-if="customer.meta?.is_whatsapp === false" class="badge badge-danger text-[10px] py-0.5 px-1">
+                Not WA
+              </span>
+            </div>
           </td>
           <td class="!text-right">
             {{customer.groups.map((g) => g.name).join(', ') || 'N/A'}}
@@ -246,6 +338,59 @@ const changeRows = () => {
       <Paginate v-if="customers.data.length" :links="customers.links" />
     </div>
   </div>
+
+  <Modal state="groupHarvesterModal" :header-state="true" header-title="Elite Group Harvester">
+    <div class="mb-4 p-3 bg-indigo-50 rounded-lg border border-indigo-100 border-dashed">
+      <p class="text-xs text-indigo-600 leading-relaxed">
+        <Icon icon="bx:info-circle" class="inline mb-0.5" />
+        {{ trans('Extract all members from your WhatsApp groups and import them as customers. This is an exclusive Enterprise feature.') }}
+      </p>
+    </div>
+    <form @submit.prevent="groupHarvesterSubmit">
+      <div class="mb-3">
+        <label class="label mb-1">{{ trans('Select Device') }}</label>
+        <select v-model="groupHarvesterForm.platform_id" @change="fetchWaGroups" class="select w-full">
+          <option :value="null" disabled>{{ trans('Select Device') }}</option>
+          <option v-for="platform in platforms" :key="platform.id" :value="platform.id">
+            {{ platform.name }}
+          </option>
+        </select>
+        <small class="text-red-600" v-if="groupHarvesterForm.errors.platform_id">
+          {{ groupHarvesterForm.errors.platform_id }}
+        </small>
+      </div>
+
+      <div class="mb-3" v-if="groupHarvesterForm.platform_id">
+        <label class="label mb-1">{{ trans('Select WhatsApp Group') }}</label>
+        <div class="relative">
+          <select v-model="groupHarvesterForm.wa_group_id" class="select w-full" :disabled="fetchingWaGroups">
+            <option value="" disabled>{{ fetchingWaGroups ? trans('Fetching groups...') : trans('Select Group') }}</option>
+            <option v-for="group in waGroups" :key="group.value" :value="group.value">
+              {{ group.label }}
+            </option>
+          </select>
+          <div v-if="fetchingWaGroups" class="absolute right-8 top-2">
+             <Icon icon="line-md:loading-twotone-loop" class="text-indigo-500" />
+          </div>
+        </div>
+        <small class="text-red-600" v-if="groupHarvesterForm.errors.wa_group_id">
+          {{ groupHarvesterForm.errors.wa_group_id }}
+        </small>
+      </div>
+
+      <div class="mb-3">
+        <MultiSelect label="Import to Internal Groups" placeholder="Select Groups" v-model="groupHarvesterForm.group_ids"
+          :options="groups" />
+        <small class="text-red-600" v-if="groupHarvesterForm.errors.group_ids">
+          {{ groupHarvesterForm.errors.group_ids }}</small>
+      </div>
+      
+      <div class="mt-4">
+        <SpinnerBtn classes="btn btn-primary w-full py-2.5" :btn-text="trans('Harvest Group Members')"
+          :processing="groupHarvesterForm.processing" :disabled="!groupHarvesterForm.wa_group_id || !groupHarvesterForm.group_ids.length" />
+      </div>
+    </form>
+  </Modal>
 
   <Modal state="importFromDeviceModal" :header-state="true" header-title="Import from device">
     <form @submit.prevent="importFromDeviceFromSubmit">
@@ -330,6 +475,28 @@ const changeRows = () => {
       <div class="mt-4">
         <SpinnerBtn classes="btn btn-primary w-full" :processing="bulkAssignGroupForm.processing">
           {{ trans('Assign Groups') }}
+        </SpinnerBtn>
+      </div>
+    </form>
+  </Modal>
+
+  <Modal state="bulkVerifyModal" :header-state="true" header-title="Verify WhatsApp Numbers">
+    <form @submit.prevent="bulkVerifyCustomers">
+      <div class="w-full">
+        <label class="label mb-1">{{ trans('Select Device to use for verification') }}</label>
+        <select v-model="bulkVerifyForm.platform_id" class="select w-full">
+          <option :value="null" disabled>Select Device</option>
+          <option v-for="platform in platforms" :key="platform.id" :value="platform.id">
+            {{ platform.name }} ({{ platform.meta?.phone_number }})
+          </option>
+        </select>
+        <small class="text-red-600" v-if="bulkVerifyForm.errors.platform_id">
+          {{ bulkVerifyForm.errors.platform_id }}
+        </small>
+      </div>
+      <div class="mt-4">
+        <SpinnerBtn classes="btn btn-primary w-full" :processing="bulkVerifyForm.processing">
+          {{ trans('Start Verification') }}
         </SpinnerBtn>
       </div>
     </form>

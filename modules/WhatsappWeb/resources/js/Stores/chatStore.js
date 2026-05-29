@@ -49,6 +49,7 @@ export const useChatStore = defineStore('chatStore', () => {
       .then((res) => {
         platform.cursor = res.data?.data?.nextCursor || null
         conversations.value = [...conversations.value, ...(res.data?.data?.chats || [])]
+        sortConversations()
       })
       .catch((err) => {
         console.error(err)
@@ -75,6 +76,7 @@ export const useChatStore = defineStore('chatStore', () => {
         .then((res) => {
           conversations.value = [...conversations.value, ...(res.data?.data?.chats || [])]
           platform.cursor = res.data?.data?.nextCursor || null
+          sortConversations()
         })
         .catch((err) => console.error(err))
         .finally(() => (loading.value.conversations = false))
@@ -450,7 +452,7 @@ export const useChatStore = defineStore('chatStore', () => {
     replying.value = null
   }
 
-  const shortConversations = () => {
+  const sortConversations = () => {
     conversations.value = conversations.value.sort(
       (a, b) => b.conversationTimestamp - a.conversationTimestamp
     )
@@ -458,7 +460,7 @@ export const useChatStore = defineStore('chatStore', () => {
 
   const touchConversation = (chat) => {
     chat.conversationTimestamp = Math.floor(Date.now() / 1000)
-    shortConversations()
+    sortConversations()
   }
 
   const getBadge = (badge_id) => badges.value.find((b) => b.id === badge_id) ?? null
@@ -659,7 +661,7 @@ export const useChatStore = defineStore('chatStore', () => {
       return c
     })
 
-    shortConversations()
+    sortConversations()
   }
 
   const syncProfile = () => {

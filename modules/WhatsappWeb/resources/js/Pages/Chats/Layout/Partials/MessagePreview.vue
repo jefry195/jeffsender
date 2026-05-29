@@ -110,7 +110,7 @@ const messageDirectionIs = (type) => {
       </div>
 
       <!-- Text message -->
-      <p v-if="messageTypeIs('text')">
+      <p v-if="messageTypeIs('text')" class="whitespace-pre-wrap">
         {{ message.message.conversation ?? message.message.extendedTextMessage?.text }}
       </p>
 
@@ -123,7 +123,7 @@ const messageDirectionIs = (type) => {
       <div v-else-if="messageTypeIs('image') || messageTypeIs('sticker')">
         <p v-if="!mediaLoaded">{{ trans('Loading media...') }}</p>
         <template v-else>
-          <p class="pb-2 text-black dark:text-white" v-if="message.message.imageMessage?.caption">
+          <p class="pb-2 text-black whitespace-pre-wrap dark:text-white" v-if="message.message.imageMessage?.caption">
             {{ message.message.imageMessage?.caption }}
           </p>
           <a v-if="mediaUrl" :href="mediaUrl">
@@ -135,7 +135,7 @@ const messageDirectionIs = (type) => {
 
       <!-- Audio message -->
       <div v-else-if="messageTypeIs('audio')">
-        <p class="pb-2" v-if="message.message.audioMessage?.caption">
+        <p class="pb-2 whitespace-pre-wrap" v-if="message.message.audioMessage?.caption">
           {{ message.message.audioMessage?.caption }}
         </p>
         <audio v-if="mediaUrl" :src="mediaUrl" controls></audio>
@@ -144,7 +144,7 @@ const messageDirectionIs = (type) => {
 
       <!-- Video message -->
       <div v-else-if="messageTypeIs('video')">
-        <p class="pb-2" v-if="message.message.videoMessage?.caption">
+        <p class="pb-2 whitespace-pre-wrap" v-if="message.message.videoMessage?.caption">
           {{ message.message.videoMessage?.caption }}
         </p>
         <video v-if="mediaUrl" :src="mediaUrl" controls></video>
@@ -153,7 +153,7 @@ const messageDirectionIs = (type) => {
 
       <!-- Document message -->
       <div v-else-if="messageTypeIs('document')">
-        <p class="pb-2" v-if="message.message.documentMessage?.caption">
+        <p class="pb-2 whitespace-pre-wrap" v-if="message.message.documentMessage?.caption">
           {{ message.message.documentMessage?.caption }}
         </p>
         <a target="_blank" :href="mediaUrl" class="flex items-center gap-3 rounded border p-3">

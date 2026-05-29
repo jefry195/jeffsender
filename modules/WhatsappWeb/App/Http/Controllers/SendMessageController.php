@@ -29,6 +29,7 @@ class SendMessageController extends Controller
 
     public function store(Request $request, WhatsAppWebService $whatsAppWebService)
     {
+        set_time_limit(0);
         
          if(env('DEMO_MODE') && auth()->user()->id == 3){
             return back()->with('danger', __('Permission disabled for demo account please create a test account..!'));
@@ -56,16 +57,19 @@ class SendMessageController extends Controller
         $request->validate($metaValidation);
         $meta = $templateController->saveFiles($request);
 
-        $newMessage = $whatsAppWebService
-            ->sendMessage($platform->uuid, $jid, $meta, $validated['type']);
+        $whatsAppWebService->sendMessage(
+            $platform->uuid,
+            $jid,
+            $meta,
+            $validated['type'],
+            'number'
+        );
 
         if ($request->filled('save_as_template') && $request->filled('name') && $request->save_as_template) {
             $templateController->store($request);
         }
 
-        if ($newMessage->successful()) {
-            Toastr::success(ucfirst($validated['type']) . ' Message sent successfully.');
-        }
+        Toastr::success(ucfirst($validated['type']) . ' Message is being sent in the background.');
 
         return redirect()->back();
     }

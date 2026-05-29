@@ -56,7 +56,7 @@ class Logger {
         else console.debug(formatted.trim());
 
         // File logging
-       // this.writeToFile(formatted);
+        this.writeToFile(formatted);
     }
 
     debug(...args) { this.log("debug", ...args); }

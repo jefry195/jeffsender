@@ -37,6 +37,9 @@
         "nodemon": "^3.1.11",
         "pino": "^10.1.0",
         "prisma": "^6.19.0",
+        "puppeteer": "^24.40.0",
+        "puppeteer-extra": "^3.3.6",
+        "puppeteer-extra-plugin-stealth": "^2.11.2",
         "qrcode": "^1.5.4"
     },
     "devDependencies": {

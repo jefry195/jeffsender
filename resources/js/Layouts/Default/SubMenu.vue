@@ -6,7 +6,10 @@ const props = defineProps({
   }
 })
 const isExternalAuth = (href) => {
-  return ['/login', '/register'].some((path) => href.endsWith(path))
+  if (!href) return false
+  return ['/login', '/register', '/dashboard', '/user/dashboard'].some((path) =>
+    href.includes(path)
+  )
 }
 </script>
 
@@ -32,7 +35,7 @@ const isExternalAuth = (href) => {
 
       <component
         v-else
-        :is="isExternalAuth(item.href) || child.target == '_top' ? 'a' : 'Link'"
+        :is="isExternalAuth(child.href) || child.target == '_top' ? 'a' : 'Link'"
         :href="sanitizeUrl(child.href ?? '#')"
         :target="child.target"
       >

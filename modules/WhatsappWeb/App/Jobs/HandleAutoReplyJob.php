@@ -13,6 +13,11 @@ class HandleAutoReplyJob implements ShouldQueue
     use Queueable;
 
     /**
+     * Number of times the job may be attempted.
+     */
+    public int $tries = 1;
+
+    /**
      * Create a new job instance.
      */
     public function __construct(
@@ -33,7 +38,16 @@ class HandleAutoReplyJob implements ShouldQueue
             ->first();
 
         if (! $chat) {
-            logOnDebug('chat not found');
+            // Fallback: try to find by phone number (removing domain)
+            $phoneNumber = str($this->jid)->before('@')->before(':')->toString();
+            $chat = Chat::query()
+                ->where('sessionId', $this->platform->uuid)
+                ->where('id', 'like', $phoneNumber . '%')
+                ->first();
+        }
+
+        if (! $chat) {
+            logOnDebug('WhatsappWeb: Chat not found for JID ' . $this->jid);
 
             return;
         }

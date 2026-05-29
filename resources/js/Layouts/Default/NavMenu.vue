@@ -8,7 +8,10 @@ const primarySettings = usePage().props.primaryData
 
 const mobileMenuState = ref(false)
 const isExternalAuth = (href) => {
-  return ['/login', '/register'].some((path) => href.endsWith(path))
+  if (!href) return false
+  return ['/login', '/register', '/dashboard', '/user/dashboard'].some((path) =>
+    href.includes(path)
+  )
 }
 </script>
 
@@ -37,11 +40,11 @@ const isExternalAuth = (href) => {
       <ul class="navbar-nav align-items-lg-center">
         <li class="d-block d-lg-none">
           <div class="logo">
-            <Link href="/" class="d-block"
+            <a href="/" class="d-block"
               ><img
                 :src="primarySettings?.deep_logo ?? '/assets/frontend/images/logo/logo_03.svg'"
                 alt=""
-            /></Link>
+            /></a>
           </div>
         </li>
 

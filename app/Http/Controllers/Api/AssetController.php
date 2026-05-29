@@ -14,8 +14,12 @@ class AssetController extends Controller
         $query = Asset::query()
             ->where('user_id', request()->user()->id)
             ->where('type', 'uploaded')
-            ->where('file_type', request('file_type'))
             ->whereNull('original_asset_id');
+
+        if (request()->filled('file_type')) {
+            $query->where('file_type', request('file_type'));
+        }
+
         if (request()->filled('newest')) {
             $assets = $query
                 ->where('id', '>', request()->newest)

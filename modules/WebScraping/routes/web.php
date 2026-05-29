@@ -22,4 +22,6 @@ Route::group([], function () {
         ->name('scrape.destroy_data');
     Route::get('/scrape/export/{id}', [MODULE\WebScrapingController::class, 'export_data'])
         ->name('scrape.export_data');
+    Route::post('/scrape/{id}/import-audience', [MODULE\WebScrapingController::class, 'importToAudience'])
+        ->name('scrape.import_audience');
 });

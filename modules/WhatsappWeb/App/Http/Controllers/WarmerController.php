@@ -97,6 +97,7 @@ class WarmerController extends Controller
 
     public function sendMessage(Request $request, WhatsAppWebService $whatsAppWebService)
     {
+        set_time_limit(0);
         if (env('DEMO_MODE') && auth()->user()->id == 3) {
             return back()->with('danger', __('Permission disabled for demo account please create a test account..!'));
         }

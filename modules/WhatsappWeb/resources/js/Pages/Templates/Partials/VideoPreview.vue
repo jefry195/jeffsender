@@ -16,7 +16,7 @@ const videoUrl = computed(() => props.meta?.videoUrl || props.meta?.video)
       src="/assets/images/whatsapp-demo-video.png"
       alt="Default video thumbnail"
     />
-    <p class="-mb-1 mt-1 p-1 text-sm leading-3">{{ previewCaption }}</p>
+    <p class="-mb-1 mt-1 p-1 text-sm leading-3 whitespace-pre-wrap">{{ previewCaption }}</p>
     <p class="text-end text-[10px] text-gray-400">{{ new Date().toLocaleTimeString() }}</p>
   </div>
 </template>
