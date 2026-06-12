@@ -35,6 +35,7 @@ const form = useForm({
   auto_reply_method_name: '',
   auto_reply_dataset: '',
   auto_reply_dataset_name: '',
+  google_sheets_url: '',
   send_welcome_message: false,
   welcome_message_template: '',
 })
@@ -51,6 +52,7 @@ watch(
       form.auto_reply_method_name = meta.auto_reply_method_name
       form.auto_reply_dataset = meta.auto_reply_dataset
       form.auto_reply_dataset_name = meta.auto_reply_dataset_name
+      form.google_sheets_url = meta.google_sheets_url || ''
       form.send_welcome_message = meta.send_welcome_message
       form.welcome_message_template = meta.welcome_message_template
     }
@@ -134,6 +136,13 @@ const selectedAutoReplyService = computed(() => {
           </option>
         </select>
         <small>{{ trans('The auto reply dataset will be used') }}</small>
+      </div>
+
+      <!-- Google Sheets Url -->
+      <div class="mb-2" v-if="form.auto_reply_method === 'GoogleSheets'">
+        <label>{{ trans('Google Sheets App Script URL') }}</label>
+        <input type="text" class="input" v-model="form.google_sheets_url" placeholder="https://script.google.com/macros/s/.../exec" />
+        <small>{{ trans('Enter the Google Apps Script Web App URL') }}</small>
       </div>
 
       <!-- toggle welcome message -->

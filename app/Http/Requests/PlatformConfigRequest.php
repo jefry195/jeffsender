@@ -33,6 +33,7 @@ class PlatformConfigRequest extends FormRequest
 
             'auto_reply_dataset' => ['required_unless:auto_reply_method,default', 'nullable'],
             'auto_reply_dataset_name' => ['nullable'],
+            'google_sheets_url' => ['nullable', 'url', 'max:2000'],
 
             // Whether to send a welcome message
             'send_welcome_message' => ['required', 'boolean'],

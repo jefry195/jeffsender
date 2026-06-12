@@ -15,7 +15,7 @@ class Chat extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'wlc_mgs_send_at' => 'datetime',
+        'wlc_mgs_send_at' => 'integer',
         'auto_reply_enabled' => 'boolean',
     ];
 

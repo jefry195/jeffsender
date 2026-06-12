@@ -15,6 +15,18 @@ $app = new Illuminate\Foundation\Application(
     $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
 );
 
+// Prevent process-wide environment variable leakage (mod_php / connection reuse)
+// by pre-loading local .env values mutably
+if (file_exists(dirname(__DIR__) . '/.env')) {
+    try {
+        $dotenv = \Dotenv\Dotenv::createUnsafeMutable(dirname(__DIR__));
+        $dotenv->load();
+    } catch (\Throwable $e) {
+        // Fallback silently
+    }
+}
+
+
 /*
 |--------------------------------------------------------------------------
 | Bind Important Interfaces

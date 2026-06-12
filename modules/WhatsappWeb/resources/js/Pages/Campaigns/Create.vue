@@ -25,7 +25,16 @@ const form = useForm({
   is_scheduled: false,
   schedule_at: null,
   timezone: 'Asia/Makassar',
-  delay_between: [15, 60]
+  delay_between: [8, 15],
+  // Anti-ban settings
+  delay_min: 8,
+  delay_max: 15,
+  batch_size_min: 20,
+  batch_size_max: 30,
+  batch_pause_min: 5,
+  batch_pause_max: 10,
+  daily_limit: 150,
+  spam_filter: true,
 })
 
 const submitForm = () => {
@@ -202,6 +211,97 @@ const selectedTemplate = computed(() => {
             :icon="form.is_scheduled ? 'fe:clock' : 'bx:send'"
           />
         </div>
+
+        <!-- =================== ANTI-BAN SETTINGS =================== -->
+        <div class="mt-4 rounded-lg border border-amber-400 bg-amber-50 p-4 dark:border-amber-600 dark:bg-amber-900/20">
+          <p class="mb-3 flex items-center gap-2 text-sm font-bold text-amber-700 dark:text-amber-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            🛡️ Anti-Ban Settings
+          </p>
+
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <!-- Delay per nomor -->
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-300">
+                ⏱️ Delay per Nomor (detik)
+              </label>
+              <div class="flex items-center gap-2">
+                <div class="flex flex-col">
+                  <span class="text-xs text-gray-400">Min</span>
+                  <input type="number" v-model.number="form.delay_min" min="1" max="60" class="input w-20 text-center text-sm" />
+                </div>
+                <span class="mt-4 text-gray-400">–</span>
+                <div class="flex flex-col">
+                  <span class="text-xs text-gray-400">Max</span>
+                  <input type="number" v-model.number="form.delay_max" min="1" max="60" class="input w-20 text-center text-sm" />
+                </div>
+                <span class="mt-4 text-xs text-gray-500">detik</span>
+              </div>
+            </div>
+
+            <!-- Batch size -->
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-300">
+                📦 Jumlah Nomor per Batch
+              </label>
+              <div class="flex items-center gap-2">
+                <div class="flex flex-col">
+                  <span class="text-xs text-gray-400">Min</span>
+                  <input type="number" v-model.number="form.batch_size_min" min="1" max="500" class="input w-20 text-center text-sm" />
+                </div>
+                <span class="mt-4 text-gray-400">–</span>
+                <div class="flex flex-col">
+                  <span class="text-xs text-gray-400">Max</span>
+                  <input type="number" v-model.number="form.batch_size_max" min="1" max="500" class="input w-20 text-center text-sm" />
+                </div>
+                <span class="mt-4 text-xs text-gray-500">nomor</span>
+              </div>
+            </div>
+
+            <!-- Batch pause -->
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-300">
+                ☕ Istirahat Antar Batch (menit)
+              </label>
+              <div class="flex items-center gap-2">
+                <div class="flex flex-col">
+                  <span class="text-xs text-gray-400">Min</span>
+                  <input type="number" v-model.number="form.batch_pause_min" min="1" max="60" class="input w-20 text-center text-sm" />
+                </div>
+                <span class="mt-4 text-gray-400">–</span>
+                <div class="flex flex-col">
+                  <span class="text-xs text-gray-400">Max</span>
+                  <input type="number" v-model.number="form.batch_pause_max" min="1" max="60" class="input w-20 text-center text-sm" />
+                </div>
+                <span class="mt-4 text-xs text-gray-500">menit</span>
+              </div>
+            </div>
+
+            <!-- Daily limit -->
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-300">
+                📊 Limit Harian (pesan/hari/nomor WA)
+              </label>
+              <div class="flex items-center gap-2">
+                <input type="number" v-model.number="form.daily_limit" min="1" max="1000" class="input w-28 text-center text-sm" />
+                <span class="text-xs text-gray-500">pesan/hari</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Spam -->
+          <div class="mt-3">
+            <label class="toggle">
+              <input class="toggle-input peer sr-only" v-model="form.spam_filter" type="checkbox" />
+              <div class="toggle-body"></div>
+              <span class="label text-xs font-semibold">🚫 Filter Kata Spam Otomatis</span>
+            </label>
+            <p class="mt-1 text-xs text-gray-400">Ganti kata berisiko (gratis, hadiah, klik, dll) secara otomatis</p>
+          </div>
+        </div>
+        <!-- =================== END ANTI-BAN =================== -->
       </form>
     </div>
 

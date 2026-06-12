@@ -167,6 +167,34 @@ class HandleIncomingMessageJob implements ShouldQueue
         $text = data_get($message, 'message.editedMessage.message.protocolMessage.editedMessage.conversation');
         if ($text) return $text;
 
+        // List Response Message — user selected from a WhatsApp list
+        // Return the selectedRowId so auto-reply keywords (rowId) can match directly
+        $rowId = data_get($message, 'message.listResponseMessage.singleSelectReply.selectedRowId');
+        if ($rowId) return $rowId;
+
+        // Also try title from list response (fallback for some WhatsApp versions)
+        $listTitle = data_get($message, 'message.listResponseMessage.title');
+        if ($listTitle) return $listTitle;
+
+        // Interactive List / Native Flow button response
+        $paramsJson = data_get($message, 'message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson');
+        if ($paramsJson) {
+            $params = json_decode($paramsJson, true);
+            if (isset($params['id'])) {
+                return $params['id'];
+            }
+        }
+        $text = data_get($message, 'message.interactiveResponseMessage.body.text');
+        if ($text) return $text;
+
+        // Standard Buttons response
+        $text = data_get($message, 'message.buttonsResponseMessage.selectedDisplayText');
+        if ($text) return $text;
+
+        // Template button reply
+        $text = data_get($message, 'message.templateButtonReplyMessage.selectedDisplayText');
+        if ($text) return $text;
+
         // Image/video caption
         $text = data_get($message, 'message.imageMessage.caption');
         if ($text) return $text;
@@ -184,7 +212,12 @@ class HandleIncomingMessageJob implements ShouldQueue
     {
         $type = 'other';
 
-        if (isset($message['message']['conversation']) || isset($message['message']['extendedTextMessage'])) {
+        if (isset($message['message']['conversation']) || 
+            isset($message['message']['extendedTextMessage']) ||
+            isset($message['message']['interactiveResponseMessage']) ||
+            isset($message['message']['buttonsResponseMessage']) ||
+            isset($message['message']['templateButtonReplyMessage']) ||
+            isset($message['message']['listResponseMessage'])) {
             $type = 'text';
         }
         if (isset($message['message']['audioMessage'])) {

@@ -74,7 +74,7 @@ class TemplateController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => 'required|in:text,image,video,audio,location,poll,document',
+            'type' => 'required|in:text,image,video,audio,location,poll,document,list',
             'meta' => 'required|array',
         ]);
 
@@ -133,7 +133,7 @@ class TemplateController extends Controller
         }
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => 'required|in:text,image,video,audio,location,poll,document',
+            'type' => 'required|in:text,image,video,audio,location,poll,document,list',
             'meta' => 'required|array',
         ]);
 

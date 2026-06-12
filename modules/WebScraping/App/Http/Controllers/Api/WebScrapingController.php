@@ -6,15 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Models\WebScraping;
 use App\Models\WebScrapedData;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Config;
 use Modules\WebScraping\App\Jobs\ScrapeJob;
 
 class WebScrapingController extends Controller
 {
     /**
      * Mulai scraping sebagai background job, langsung return tanpa menunggu.
+     * Selalu memaksa queue ke 'database' agar tidak berjalan sinkron di dalam request.
      */
     public function start($uuid)
     {
+        // Paksa queue pakai database agar job tidak berjalan sinkron (mencegah timeout)
+        Config::set('queue.default', 'database');
+
+        // Batasi waktu eksekusi endpoint ini ke 30 detik saja (dispatch saja, bukan scraping)
+        set_time_limit(30);
+
         $planCheck = validateUserPlan('web_scrape', true);
         if (is_array($planCheck) && $planCheck['status'] === 'error') {
             return response()->json(['error' => $planCheck['message']], 403);
@@ -34,7 +42,8 @@ class WebScrapingController extends Controller
         // Hapus data lama jika mau re-scrape
         $record->scraped_data()->delete();
 
-        ScrapeJob::dispatch($record);
+        // Dispatch ke database queue (bukan sync) — berjalan di background oleh queue worker
+        ScrapeJob::dispatch($record)->onConnection('database');
 
         return response()->json([
             'status'  => 'queued',

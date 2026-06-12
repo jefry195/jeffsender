@@ -18,14 +18,23 @@ use Modules\Whatsapp\App\Services\TemplateValidation;
 class CampaignController extends Controller
 {
     public $validation_params = [
-        'name' => 'required|string|max:191',
-        'platform_id' => 'required|exists:platforms,id',
-        'group_id' => 'required|numeric|exists:groups,id',
-        'message_type' => 'required|in:text,template,interactive',
-        'template_id' => 'required_if:message_type,template',
-        'message' => 'required_if:message_type,text',
-        'send_type' => 'required|string|in:instant,draft,scheduled',
-        'meta' => 'array',
+        'name'           => 'required|string|max:191',
+        'platform_id'    => 'required|exists:platforms,id',
+        'group_id'       => 'required|numeric|exists:groups,id',
+        'message_type'   => 'required|in:text,template,interactive',
+        'template_id'    => 'required_if:message_type,template',
+        'message'        => 'required_if:message_type,text',
+        'send_type'      => 'required|string|in:instant,draft,scheduled',
+        'meta'           => 'array',
+        // Anti-ban settings
+        'delay_min'      => 'nullable|integer|min:1|max:60',
+        'delay_max'      => 'nullable|integer|min:1|max:60',
+        'batch_size_min' => 'nullable|integer|min:1|max:500',
+        'batch_size_max' => 'nullable|integer|min:1|max:500',
+        'batch_pause_min'=> 'nullable|integer|min:1|max:60',
+        'batch_pause_max'=> 'nullable|integer|min:1|max:60',
+        'daily_limit'    => 'nullable|integer|min:1|max:1000',
+        'spam_filter'    => 'nullable|boolean',
     ];
 
     public $validation_message = [
@@ -338,6 +347,25 @@ class CampaignController extends Controller
         CampaignService::send($campaign);
 
         return back()->with('success', 'Campaign Sent Successfully');
+    }
+
+    /**
+     * Lanjutkan campaign yang dijeda (status: paused) karena daily limit.
+     * Resume akan skip customer yang sudah pernah dikirim.
+     */
+    public function resume(Campaign $campaign)
+    {
+        if (env('DEMO_MODE') && auth()->user()->id == 3) {
+            return back()->with('danger', __('Permission disabled for demo account please create a test account..!'));
+        }
+
+        if ($campaign->status !== Campaign::STATUS_PAUSED) {
+            return back()->with('danger', 'Hanya campaign dengan status "paused" yang bisa dilanjutkan.');
+        }
+
+        CampaignService::send($campaign);
+
+        return back()->with('success', 'Campaign dilanjutkan.');
     }
 
     public function copy(Campaign $campaign)

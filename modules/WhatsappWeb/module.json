@@ -122,6 +122,22 @@
           "href": "/user/whatsapp-web/apps",
           "target": "_self",
           "deletable": false
+        },
+        {
+          "text": "Kalkulator Box",
+          "id": "m12calc1fk",
+          "icon": "bx:calculator",
+          "href": "/user/whatsapp-web/calculator",
+          "target": "_self",
+          "deletable": false
+        },
+        {
+          "text": "Simulasi Campaign",
+          "id": "m12sim1fk",
+          "icon": "bx:play-circle",
+          "href": "/user/whatsapp-web/simulation",
+          "target": "_self",
+          "deletable": false
         }
       ]
     }

@@ -28,6 +28,9 @@ const PollPreview = defineAsyncComponent(() =>
 const DocumentPreview = defineAsyncComponent(() =>
   import('@whatsappWeb/Pages/Templates/Partials/DocumentPreview.vue')
 )
+const ListPreview = defineAsyncComponent(() =>
+  import('@whatsappWeb/Pages/Templates/Partials/ListPreview.vue')
+)
 
 const previewComponents = {
   text: TextPreview,
@@ -36,7 +39,8 @@ const previewComponents = {
   audio: AudioPreview,
   location: LocationPreview,
   poll: PollPreview,
-  document: DocumentPreview
+  document: DocumentPreview,
+  list: ListPreview
 }
 </script>
 

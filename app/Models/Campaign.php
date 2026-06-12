@@ -24,11 +24,23 @@ class Campaign extends Model
 
     public const STATUS_SEND = 'send';
 
+    /** Campaign dijeda karena daily limit tercapai — bisa dilanjutkan hari berikutnya */
+    public const STATUS_PAUSED = 'paused';
+
     protected $guarded = ['id'];
 
     protected $casts = [
-        'delay_between' => 'array',
-        'meta' => 'array',
+        'delay_between'  => 'array',
+        'meta'           => 'array',
+        'spam_filter'    => 'boolean',
+        'delay_min'      => 'integer',
+        'delay_max'      => 'integer',
+        'batch_size_min' => 'integer',
+        'batch_size_max' => 'integer',
+        'batch_pause_min'=> 'integer',
+        'batch_pause_max'=> 'integer',
+        'daily_limit'    => 'integer',
+        'sending_progress' => 'integer',
     ];
 
     public function platform(): BelongsTo

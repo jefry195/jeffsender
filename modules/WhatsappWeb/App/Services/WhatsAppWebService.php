@@ -156,9 +156,48 @@ class WhatsAppWebService
                 default => throw new \InvalidArgumentException("Unsupported template message format"),
             },
             'list' => [
-                'text' => $message['text'] ?? '',
-                'buttonText' => $message['button_text'] ?? 'Select Option',
-                'sections' => $message['sections'] ?? [],
+                'viewOnceMessage' => [
+                    'message' => [
+                        'messageContextInfo' => [
+                            'deviceListMetadata' => (object)[],
+                            'deviceListMetadataVersion' => 2,
+                        ],
+                        'interactiveMessage' => [
+                            'body' => [
+                                'text' => $message['text'] ?? '',
+                            ],
+                            'footer' => [
+                                'text' => $message['footer'] ?? '',
+                            ],
+                            'header' => [
+                                'title' => $message['title'] ?? '',
+                                'hasMediaAttachment' => false,
+                            ],
+                            'nativeFlowMessage' => [
+                                'buttons' => [
+                                    [
+                                        'name' => 'single_select',
+                                        'buttonParamsJson' => json_encode([
+                                            'title' => $message['button_text'] ?? 'Select Option',
+                                            'sections' => array_map(function ($section) {
+                                                return [
+                                                    'title' => $section['title'] ?? 'Options',
+                                                    'rows' => array_map(function ($row) {
+                                                        return [
+                                                            'title' => $row['title'] ?? '',
+                                                            'id' => !empty($row['rowId']) ? $row['rowId'] : (!empty($row['id']) ? $row['id'] : uniqid()),
+                                                            'description' => $row['description'] ?? '',
+                                                                ];
+                                                    }, $section['rows'] ?? []),
+                                                ];
+                                            }, $message['sections'] ?? []),
+                                        ]),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
             ],
             default => throw new \InvalidArgumentException("Unsupported message type: {$messageType}"),
         };

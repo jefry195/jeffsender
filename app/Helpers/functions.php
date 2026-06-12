@@ -154,6 +154,10 @@ if (! function_exists('activeWorkspaceOwnerId')) {
          */
         $authUser = auth()->user();
 
+        if (! $authUser) {
+            return null;
+        }
+
         return $authUser?->getActiveWorkspaceOwnerId() ?? $authUser->id;
     }
 }

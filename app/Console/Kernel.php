@@ -14,6 +14,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('model:prune')->daily();
         $schedule->command('sheets:check-status')->everyMinute();
+        $schedule->command('sheets:update-pricelist')->daily();
     }
 
     /**

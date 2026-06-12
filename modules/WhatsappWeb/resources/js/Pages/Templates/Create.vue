@@ -22,7 +22,8 @@ const tabButtons = [
   { label: 'Audio Message', value: 'audio' },
   { label: 'Send Location', value: 'location' },
   { label: 'Poll Message', value: 'poll' },
-  { label: 'Document Message', value: 'document' }
+  { label: 'Document Message', value: 'document' },
+  { label: 'List Message', value: 'list' }
 ]
 
 const templateMessageFormFields = {
@@ -32,7 +33,19 @@ const templateMessageFormFields = {
   image: { image: null, caption: '' },
   audio: { audio: null },
   location: { latitude: '', longitude: '' },
-  document: { document: null, caption: '' }
+  document: { document: null, caption: '', document_name: '' },
+  list: {
+    text: '',
+    footer: 'JeffSender',
+    title: 'Menu',
+    button_text: 'Select Option',
+    sections: [
+      {
+        title: 'Options',
+        rows: [{ title: '', description: '', rowId: '' }]
+      }
+    ]
+  }
 }
 
 const setTemplateForm = (type) => {
@@ -68,8 +81,17 @@ const getFieldType = (field, value) => {
   if (typeof value === 'boolean') return 'checkbox'
   if (typeof value === 'number') return 'number'
   if (['latitude', 'longitude', 'name'].includes(field)) return 'input'
-  if (['text', 'caption'].includes(field)) return 'textarea'
+  if (['text', 'caption', 'footer', 'title', 'button_text', 'row_title', 'row_desc'].includes(field)) return 'textarea'
+  if (['sections', 'rows'].includes(field)) return 'list_component'
   return 'input'
+}
+
+const addListRow = (sectionIndex) => {
+  form.meta.sections[sectionIndex].rows.push({ title: '', description: '', rowId: '' })
+}
+
+const removeListRow = (sectionIndex, rowIndex) => {
+  form.meta.sections[sectionIndex].rows.splice(rowIndex, 1)
 }
 
 const addPollOption = () => {
@@ -184,6 +206,33 @@ const textTransformButtons = [
                 <Icon icon="bx:plus" />
                 <span>{{ trans('Option') }}</span>
               </button>
+            </div>
+          </div>
+
+          <div v-else-if="getFieldType(field, value) === 'list_component'">
+            <div v-for="(section, sIndex) in form.meta.sections" :key="sIndex" class="space-y-4 rounded-lg border p-4">
+              <InputField v-model="section.title" label="Section Title" />
+              <div v-for="(row, rIndex) in section.rows" :key="rIndex" class="card bg-gray-50 p-4 dark:bg-gray-700">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="grid w-full grid-cols-1 gap-2 md:grid-cols-2">
+                    <InputField v-model="row.title" label="Menu Title (The text will be replied)" />
+                    <InputField v-model="row.description" label="Short Description (Optional)" />
+                  </div>
+                  <button
+                    type="button"
+                    @click="removeListRow(sIndex, rIndex)"
+                    class="btn btn-danger mt-6 py-2"
+                    :disabled="section.rows.length <= 1"
+                  >
+                    <Icon icon="bx:trash" class="text-lg" />
+                  </button>
+                </div>
+              </div>
+              <div class="flex justify-end">
+                <button type="button" @click="addListRow(sIndex)" class="btn btn-primary btn-sm mt-2">
+                  <Icon icon="bx:plus" /> <span>Add Menu Line</span>
+                </button>
+              </div>
             </div>
           </div>
 

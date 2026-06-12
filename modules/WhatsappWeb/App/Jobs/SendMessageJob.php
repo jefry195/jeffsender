@@ -40,7 +40,7 @@ class SendMessageJob implements ShouldQueue
             Chat::query()
                 ->where('sessionId', $this->sessionId)
                 ->where('id', $this->jid)
-                ->update(['wlc_mgs_send_at' => now()]);
+                ->update(['wlc_mgs_send_at' => now()->timestamp]);
         }
     }
 }

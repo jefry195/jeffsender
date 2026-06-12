@@ -42,8 +42,13 @@ Route::group(['middleware' => ['auth', 'user', 'access_module:whatsapp-web']], f
     Route::patch('groups/{group}/update-customers', [MODULE\GroupController::class, 'updateCustomers'])
         ->name('groups.update-customers');
 
+    // Simulasi Campaign (test tanpa kirim pesan sungguhan)
+    Route::get('simulation', [MODULE\SimulationController::class, 'index'])->name('simulation.index');
+    Route::post('simulation/run', [MODULE\SimulationController::class, 'run'])->name('simulation.run');
+
     // Campaigns
     Route::resource('campaigns', MODULE\CampaignController::class)->except(['update']);
+    Route::get('campaigns/{campaign}/resume', [MODULE\CampaignController::class, 'resume'])->name('campaigns.resume');
 
     // quick replies
     Route::resource('quick-replies', '\App\Http\Controllers\User\QuickReplyController')->except('show');
@@ -59,4 +64,8 @@ Route::group(['middleware' => ['auth', 'user', 'access_module:whatsapp-web']], f
     Route::resource('warmer', MODULE\WarmerController::class)->names('warmer');
     Route::post('warmer-message', [MODULE\WarmerController::class, 'sendMessage'])
         ->name('warmer.send-message');
+
+    // Calculator
+    Route::get('calculator', [MODULE\CalculatorController::class, 'index'])->name('calculator.index');
+    Route::post('calculator/calculate', [MODULE\CalculatorController::class, 'calculate'])->name('calculator.calculate');
 });

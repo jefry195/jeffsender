@@ -7,5 +7,6 @@
     "providers": [
         
     ],
-    "files": []
+    "files": [],
+    "service_type": "auto_reply"
 }

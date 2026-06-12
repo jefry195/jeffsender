@@ -14,8 +14,9 @@ class ReplyService extends ReplyServiceAbstract
      */
     public function process(): static
     {
-        // Cari platform berdasarkan sessionId/datasetId
-        $platform = Platform::where('uuid', $this->getData('sessionId'))
+        // Cari platform berdasarkan platform_uuid, sessionId atau datasetId
+        $platform = Platform::where('uuid', $this->getData('platform_uuid'))
+            ->orWhere('uuid', $this->getData('sessionId'))
             ->orWhere('uuid', $this->datasetId)
             ->first();
         

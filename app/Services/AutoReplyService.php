@@ -122,6 +122,7 @@ class AutoReplyService
             'conversation_id' => $this->conversation->id,
             'owner_id' => $this->message->owner_id,
             'user_id' => $this->message->owner_id,
+            'platform_uuid' => $this->platform->uuid,
         ])->process();
 
         $messages = $replyService->getMessages();

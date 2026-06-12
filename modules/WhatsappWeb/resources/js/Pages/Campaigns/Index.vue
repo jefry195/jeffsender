@@ -35,22 +35,11 @@ const filterOptions = [
     label: 'Status',
     value: 'status',
     options: [
-      {
-        label: 'Send',
-        value: 'send'
-      },
-      {
-        label: 'Draft',
-        value: 'draft'
-      },
-      {
-        label: 'Pending',
-        value: 'pending'
-      },
-      {
-        label: 'Scheduled',
-        value: 'scheduled'
-      }
+      { label: 'Send',           value: 'send' },
+      { label: 'Draft',          value: 'draft' },
+      { label: 'Pending',        value: 'pending' },
+      { label: 'Scheduled',      value: 'scheduled' },
+      { label: 'Paused (Dijeda)',value: 'paused' }
     ]
   }
 ]
@@ -100,8 +89,8 @@ const filterOptions = [
           </td>
           <td class="!text-right">
             <div class="flex flex-col items-center justify-center gap-1">
-              <span class="capitalize" :class="badgeClass(campaign.status)">
-                {{ campaign.status }}
+              <span class="capitalize" :class="campaign.status === 'paused' ? 'badge badge-warning' : badgeClass(campaign.status)">
+                {{ campaign.status === 'paused' ? '⏸ Dijeda' : campaign.status }}
               </span>
 
               <div
@@ -149,6 +138,17 @@ const filterOptions = [
                       >
                         <Icon class="h-5 text-3xl text-slate-400" icon="bx:send" />
                         {{ trans('Send Now') }}
+                      </a>
+                    </li>
+
+                    <!-- Tombol Lanjutkan untuk campaign yang dijeda -->
+                    <li class="dropdown-list-item" v-if="campaign.status == 'paused'">
+                      <a
+                        class="dropdown-link text-amber-600"
+                        :href="route('user.whatsapp-web.campaigns.resume', campaign.id)"
+                      >
+                        <Icon class="h-5 text-3xl" icon="bx:play" />
+                        {{ trans('Lanjutkan') }}
                       </a>
                     </li>
                     <li class="dropdown-list-item" v-else-if="campaign.status == 'send'">

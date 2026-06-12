@@ -126,16 +126,25 @@ class CampaignController extends Controller
         }
 
         $validated = $request->validate([
-            'module' => ['required', 'in:whatsapp-web'],
-            'title' => 'required|max:200',
-            'platform_id' => 'required|exists:platforms,id',
-            'group_id' => 'required|numeric|exists:groups,id',
-            'template_id' => ['required_if:message_type,template'],
-            'message_type' => ['required', 'in:text,template'],
+            'module'           => ['required', 'in:whatsapp-web'],
+            'title'            => 'required|max:200',
+            'platform_id'      => 'required|exists:platforms,id',
+            'group_id'         => 'required|numeric|exists:groups,id',
+            'template_id'      => ['required_if:message_type,template'],
+            'message_type'     => ['required', 'in:text,template'],
             'message_template' => ['required_if:message_type,text'],
-            'is_scheduled' => ['sometimes', 'boolean'],
-            'schedule_at' => ['nullable', 'date', 'after:now'],
-            'delay_between' => ['required', 'array'],
+            'is_scheduled'     => ['sometimes', 'boolean'],
+            'schedule_at'      => ['nullable', 'date', 'after:now'],
+            'delay_between'    => ['required', 'array'],
+            // Anti-ban settings
+            'delay_min'        => 'nullable|integer|min:1|max:60',
+            'delay_max'        => 'nullable|integer|min:1|max:60',
+            'batch_size_min'   => 'nullable|integer|min:1|max:500',
+            'batch_size_max'   => 'nullable|integer|min:1|max:500',
+            'batch_pause_min'  => 'nullable|integer|min:1|max:60',
+            'batch_pause_max'  => 'nullable|integer|min:1|max:60',
+            'daily_limit'      => 'nullable|integer|min:1|max:1000',
+            'spam_filter'      => 'nullable|boolean',
         ]);
 
         if ($request->is_scheduled) {
@@ -263,5 +272,28 @@ class CampaignController extends Controller
         $campaign->delete();
 
         return back()->with('success', __('Campaign has been deleted successfully'));
+    }
+
+    /**
+     * Lanjutkan campaign yang dijeda (status: paused) karena daily limit.
+     * Resume akan skip customer yang sudah pernah dikirim.
+     */
+    public function resume(Campaign $campaign)
+    {
+        if (env('DEMO_MODE') && auth()->user()->id == 3) {
+            return back()->with('danger', __('Permission disabled for demo account please create a test account..!'));
+        }
+
+        if ($campaign->status !== Campaign::STATUS_PAUSED) {
+            return back()->with('danger', 'Hanya campaign dengan status "paused" yang bisa dilanjutkan.');
+        }
+
+        try {
+            \Modules\WhatsappWeb\App\Jobs\CampaignSendJob::dispatch($campaign);
+        } catch (\Throwable $th) {
+            return back()->with('danger', $th->getMessage());
+        }
+
+        return back()->with('success', __('Campaign dilanjutkan dari nomor yang belum terkirim.'));
     }
 }

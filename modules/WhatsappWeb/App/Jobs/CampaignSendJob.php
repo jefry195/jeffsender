@@ -11,7 +11,7 @@ class CampaignSendJob implements ShouldQueue
 {
     use Queueable;
 
-    public $timeout = 3600; // 1 hour
+    public $timeout = 28800; // 8 jam — untuk menampung batch pause antar nomor
 
     /**
      * Create a new job instance.

@@ -21,3 +21,9 @@ yarn-error.log
 /.vscode
 *.zip
 _ide_helper.php
+
+# Local/scratch/temporary files
+/scratch/
+*.log
+last_logs.txt
+/public/notified_invoices_*.json

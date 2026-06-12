@@ -39,7 +39,7 @@ class SendMessageController extends Controller
        
 
         $validated = $request->validate([
-            'type' => 'required|in:text,image,video,audio,location,poll,document',
+            'type' => 'required|in:text,image,video,audio,location,poll,document,list',
             'receiver_number' => 'required|string',
             'platform_id' => 'required|string',
             'meta' => 'required|array',

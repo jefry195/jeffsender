@@ -47,6 +47,10 @@ const filterOptions = [
       {
         label: 'Scheduled',
         value: 'scheduled'
+      },
+      {
+        label: 'Paused (Dijeda)',
+        value: 'paused'
       }
     ]
   }
@@ -118,10 +122,11 @@ const filterOptions = [
                 'badge-info': campaign.status === 'draft',
                 'badge-secondary': campaign.status === 'pending',
                 'badge-primary': campaign.status === 'scheduled',
-                'badge-success': campaign.status === 'send'
+                'badge-success': campaign.status === 'send',
+                'badge-warning': campaign.status === 'paused',
               }"
             >
-              {{ campaign.status }}
+              {{ campaign.status === 'paused' ? '⏸ Dijeda' : campaign.status }}
             </span>
           </td>
           <td>
@@ -154,6 +159,17 @@ const filterOptions = [
                         >
                           <Icon icon="bx:send" />
                           <span>{{ trans('Send Now') }}</span>
+                        </a>
+                      </li>
+
+                      <!-- Tombol Lanjutkan untuk campaign yang dijeda -->
+                      <li class="dropdown-list-item" v-if="campaign.status == 'paused'">
+                        <a
+                          class="dropdown-link text-amber-600"
+                          :href="route('user.whatsapp.campaigns.resume', campaign.id)"
+                        >
+                          <Icon icon="bx:play" />
+                          <span>{{ trans('Lanjutkan') }}</span>
                         </a>
                       </li>
 
