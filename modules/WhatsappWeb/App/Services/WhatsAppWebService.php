@@ -318,7 +318,8 @@ class WhatsAppWebService
         $customerName = Chat::where('id', $jid)->value('name');
         
         $platformUuid = $sessionId ?? '';
-        $orderLink = $platformUuid ? "http://127.0.0.1:8010/order/{$platformUuid}" : "http://127.0.0.1:8010/order";
+        $baseUrl = rtrim(config('app.url', 'http://127.0.0.1:8010'), '/');
+        $orderLink = $platformUuid ? "{$baseUrl}/order/{$platformUuid}" : "{$baseUrl}/order";
 
         return str($text)
             ->replace('{name}', $customerName ?? '{name}')

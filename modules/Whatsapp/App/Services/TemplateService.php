@@ -176,7 +176,8 @@ class TemplateService
         $name = $this->customer?->name ?? '';
         $phone = ($this->customer && isset($this->customer->meta['dial_code'])) ? $this->customer->meta['dial_code'].$this->customer->meta['phone'] : '';
         $platformUuid = $this->conversation?->platform?->uuid ?? $this->template?->platform?->uuid ?? '';
-        $orderLink = $platformUuid ? "http://127.0.0.1:8010/order/{$platformUuid}" : "http://127.0.0.1:8010/order";
+        $baseUrl = rtrim(config('app.url', 'http://127.0.0.1:8010'), '/');
+        $orderLink = $platformUuid ? "{$baseUrl}/order/{$platformUuid}" : "{$baseUrl}/order";
         
         $this->shortCodes = [
             '{name}' => $name,
