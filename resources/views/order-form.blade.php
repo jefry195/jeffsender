@@ -274,8 +274,7 @@
             // Generate auto order number
             const today = new Date();
             const year = today.getFullYear();
-            const randNo = Math.floor(1000 + Math.random() * 9000);
-            const uniqueOrderNo = `ORD-${year}-${randNo}`;
+            const uniqueOrderNo = "{{ $nextOrderNo }}";
             orderNumberDisplay.value = uniqueOrderNo;
             orderNumberVal.value = uniqueOrderNo;
 
@@ -304,8 +303,22 @@
                 const originalText = btnSearchOrder.textContent;
                 btnSearchOrder.textContent = "...";
                 btnSearchOrder.disabled = true;
+
+                let searchId = orderId;
+                // If pure digits (e.g. "212"), convert to ORD-Year-Number format
+                if (/^\d+$/.test(searchId)) {
+                    const num = parseInt(searchId, 10);
+                    const year = num <= 8 ? 2025 : today.getFullYear();
+                    searchId = `ORD-${year}-${num}`;
+                }
+                // If it is ORD-Number format (e.g. "ORD-212"), convert to ORD-Year-Number
+                else if (/^ORD-\d+$/i.test(searchId)) {
+                    const num = parseInt(searchId.replace(/ORD-/i, ''), 10);
+                    const year = num <= 8 ? 2025 : today.getFullYear();
+                    searchId = `ORD-${year}-${num}`;
+                }
                 
-                const searchUrl = `${scriptURL}?action=search&no_order=${encodeURIComponent(orderId)}`;
+                const searchUrl = `${scriptURL}?action=search&no_order=${encodeURIComponent(searchId)}`;
 
                 fetch(searchUrl)
                     .then(response => response.json())

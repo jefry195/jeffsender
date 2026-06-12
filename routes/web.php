@@ -52,10 +52,55 @@ Route::get('/order/{uuid?}', function ($uuid = null) {
     $app = \Modules\WhatsappWeb\App\Models\WhatsappWebApp::where('platform_id', $platform->id)->first();
     $adminPhone = data_get($platform->meta, 'phone_number', '6282261567685');
     
+    $nextOrderNo = null;
+    if ($app && !empty($app->site_link)) {
+        try {
+            $sheetUrl = $app->site_link;
+            $csvUrl = $sheetUrl;
+            if (preg_match('/\/d\/([a-zA-Z0-9-_]+)/', $sheetUrl, $matches)) {
+                $spreadsheetId = $matches[1];
+                $csvUrl = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/export?format=csv";
+            }
+            
+            $response = \Illuminate\Support\Facades\Http::timeout(3)->get($csvUrl);
+            if ($response->successful()) {
+                $csvData = $response->body();
+                $stream = fopen('php://temp', 'r+');
+                fwrite($stream, $csvData);
+                rewind($stream);
+
+                $lastOrderNo = null;
+                fgetcsv($stream); // skip headers
+                
+                while (($row = fgetcsv($stream)) !== false) {
+                    if (isset($row[0]) && !empty($row[0]) && strpos($row[0], 'ORD-') === 0) {
+                        $lastOrderNo = $row[0];
+                    }
+                }
+                fclose($stream);
+
+                if ($lastOrderNo && preg_match('/ORD-(\d+)-(\d+)/', $lastOrderNo, $ordMatches)) {
+                    $lastSerial = (int)$ordMatches[2];
+                    $currentYear = date('Y');
+                    $nextOrderNo = "ORD-{$currentYear}-" . ($lastSerial + 1);
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::warning("Failed to fetch next order number from Google Sheets: " . $e->getMessage());
+        }
+    }
+    
+    if (!$nextOrderNo) {
+        $currentYear = date('Y');
+        $randNo = rand(1000, 9999);
+        $nextOrderNo = "ORD-{$currentYear}-{$randNo}";
+    }
+    
     return view('order-form', [
         'appKey' => $app?->key ?? '',
         'authKey' => $app?->user?->authkey ?? '',
-        'adminPhone' => $adminPhone
+        'adminPhone' => $adminPhone,
+        'nextOrderNo' => $nextOrderNo
     ]);
 })->name('public.order-form');
 
