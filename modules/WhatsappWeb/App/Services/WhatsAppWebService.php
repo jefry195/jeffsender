@@ -106,7 +106,7 @@ class WhatsAppWebService
         }
 
         $data['message'] = match ($messageType) {
-            'text' => ['text' => $this->replaceShortCodes($message['text'], $jid)],
+            'text' => ['text' => $this->replaceShortCodes($message['text'], $jid, $sessionId)],
             'location' => [
                 'location' => [
                     'degreesLatitude' => $message['latitude'],
@@ -147,7 +147,7 @@ class WhatsAppWebService
                 ],
             ],
             'template' => match (true) {
-                isset($message['text']) => ['text' => $this->replaceShortCodes($message['text'], $jid)],
+                isset($message['text']) => ['text' => $this->replaceShortCodes($message['text'], $jid, $sessionId)],
                 isset($message['image']) => ['image' => ['url' => $this->resolveMediaUrl($message['image'])], 'caption' => $message['caption'] ?? null],
                 isset($message['video']) => ['video' => ['url' => $this->resolveMediaUrl($message['video'])], 'caption' => $message['caption'] ?? null],
                 isset($message['document']) => ['document' => ['url' => $this->resolveMediaUrl($message['document'])], 'caption' => $message['caption'] ?? null],
@@ -313,10 +313,17 @@ class WhatsAppWebService
         ]);
     }
 
-    public function replaceShortCodes($text, $jid)
+    public function replaceShortCodes($text, $jid, $sessionId = null)
     {
         $customerName = Chat::where('id', $jid)->value('name');
+        
+        $platformUuid = $sessionId ?? '';
+        $orderLink = $platformUuid ? "http://127.0.0.1:8010/order/{$platformUuid}" : "http://127.0.0.1:8010/order";
 
-        return str($text)->replace('{name}', $customerName ?? '{name}')->toString();
+        return str($text)
+            ->replace('{name}', $customerName ?? '{name}')
+            ->replace('{platform_uuid}', $platformUuid)
+            ->replace('{order_link}', $orderLink)
+            ->toString();
     }
 }

@@ -237,9 +237,12 @@ class AutoReplyService
 
     private function replaceShortCodes($text)
     {
+        $platformUuid = $this->platform?->uuid ?? '';
+        $orderLink = $platformUuid ? "http://127.0.0.1:8010/order/{$platformUuid}" : "http://127.0.0.1:8010/order";
+
         return str_replace(
-            '{name}',
-            $this->chat?->name ?? '{name}',
+            ['{name}', '{platform_uuid}', '{order_link}'],
+            [$this->chat?->name ?? '{name}', $platformUuid, $orderLink],
             $text
         );
     }

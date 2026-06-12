@@ -173,11 +173,16 @@ class TemplateService
      */
     public function setShortCodes()
     {
-        $name = $this->customer->name;
-        $phone = $this->customer->meta['dial_code'].$this->customer->meta['phone'];
+        $name = $this->customer?->name ?? '';
+        $phone = ($this->customer && isset($this->customer->meta['dial_code'])) ? $this->customer->meta['dial_code'].$this->customer->meta['phone'] : '';
+        $platformUuid = $this->conversation?->platform?->uuid ?? $this->template?->platform?->uuid ?? '';
+        $orderLink = $platformUuid ? "http://127.0.0.1:8010/order/{$platformUuid}" : "http://127.0.0.1:8010/order";
+        
         $this->shortCodes = [
             '{name}' => $name,
             '{phone}' => $phone,
+            '{platform_uuid}' => $platformUuid,
+            '{order_link}' => $orderLink,
         ];
 
         return $this;
