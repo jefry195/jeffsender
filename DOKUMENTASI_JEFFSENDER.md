@@ -90,4 +90,65 @@ Robot Anda mendukung balasan cerdas menggunakan modul **Ai Training** (saat ini 
 *   **Log Laravel:** `C:\xampp\htdocs\jeffsender\storage\logs\laravel.log`
 
 ---
+
+## 🖥️ 9. PANDUAN SERVER LOW-WATT (MINI PC & CASAOS)
+
+Panduan ini ditujukan untuk memindahkan server lokal dari PC Desktop utama ke perangkat Mini PC hemat daya (Low Watt) agar dapat menyala nonstop 24 jam dengan biaya listrik minimal.
+
+### A. Rekomendasi Hardware
+*   **Processor**: Intel N100 (4 Cores, 4 Threads, TDP 6 Watt).
+*   **RAM**: 16 GB DDR4/DDR5 (Sangat direkomendasikan dibanding 8GB agar aman menjalankan MySQL + NodeJS WhatsApp Server + Laravel + OS).
+*   **Penyimpanan**: SSD M.2 NVMe 256GB / 512GB (Wajib NVMe demi kecepatan I/O database).
+*   **Contoh Unit**: GMKtec NucBox G3, Beelink S12 Pro, atau MSI Cubi N ADL.
+
+### B. Kalkulasi Biaya Listrik Bulanan (Meteran 6.600 VA / Tarif Rp1.699,53 per kWh)
+*   **PC Desktop Lama (Ryzen 5 4600G + GTX 1650)**:
+    *   Daya: ~65 - 100 Watt.
+    *   Biaya Listrik Bulanan: **Rp79.500 s/d Rp122.500**.
+*   **Mini PC Rekomendasi (Intel N100)**:
+    *   Daya: ~6 - 12 Watt.
+    *   Biaya Listrik Bulanan: **Rp7.100 s/d Rp14.250** (Hemat Daya 85% - 90%).
+
+### C. Cara Instalasi CasaOS (Ubuntu Server Host)
+1.  Buat USB Bootable menggunakan file ISO **Ubuntu Server 22.04 LTS** lewat aplikasi Rufus di Windows.
+2.  Colok flashdisk ke Mini PC, masuk ke BIOS (tekan `Del` atau `F7` berulang kali saat booting), lalu atur agar boot ke USB.
+3.  Lakukan instalasi Ubuntu Server ke dalam penyimpanan disk SSD (Windows bawaan akan terhapus).
+4.  Setelah masuk ke terminal Ubuntu Server, jalankan instalasi CasaOS otomatis dengan perintah satu baris ini:
+    ```bash
+    curl -fsSL https://get.casaos.io | sudo bash
+    ```
+5.  Setelah selesai, akses dashboard CasaOS melalui web browser dari komputer lain di jaringan lokal yang sama dengan mengetik alamat IP Mini PC tersebut (contoh: `http://192.168.1.100`).
+
+### D. Konfigurasi IP Static
+Untuk mempermudah akses remote dan koneksi server, atur IP Static pada Mini PC Anda:
+
+#### Cara Utama (Static DHCP Reservation di Router)
+1.  Buka admin dashboard Router Anda (misal `192.168.1.1`).
+2.  Masuk ke menu **DHCP Server** ➔ **Address Reservation** / **Static Lease**.
+3.  Daftarkan **MAC Address** Mini PC Anda dan tentukan IP static yang Anda inginkan (misal `192.168.1.100`).
+
+#### Cara Alternatif (Netplan di Ubuntu Server Host)
+1.  Cek nama interface jaringan Anda dengan mengetik `ip a` (misal: `enp1s0`).
+2.  Buka file Netplan: `sudo nano /etc/netplan/01-netcfg.yaml`
+3.  Gunakan konfigurasi berikut (sesuaikan spasi dan nama interface):
+    ```yaml
+    network:
+      version: 2
+      renderer: networkd
+      ethernets:
+        enp1s0:
+          dhcp4: no
+          addresses:
+            - 192.168.1.100/24
+          routes:
+            - to: default
+              via: 192.168.1.1
+          nameservers:
+            addresses:
+              - 8.8.8.8
+              - 1.1.1.1
+    ```
+4.  Terapkan pengaturan dengan perintah: `sudo netplan apply`
+
+---
 *Dibuat dengan penuh dedikasi oleh Antigravity AI khusus untuk Jefri - Dooren'z Percetakan.* 💠✨
