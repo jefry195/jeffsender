@@ -42,5 +42,14 @@ Route::get('/ai-tools', [WEB\WebPageController::class, 'aiTools'])->name('ai-too
 Route::get('/oauth/google', [GoogleAuthController::class, 'redirectTo']);
 Route::get('/oauth/google/callback', [GoogleAuthController::class, 'handleCallback']);
 
+Route::get('/order', function () {
+    $app = \Modules\WhatsappWeb\App\Models\WhatsappWebApp::with('user')->first();
+    return view('order-form', [
+        'appKey' => $app?->key ?? '',
+        'authKey' => $app?->user?->authkey ?? ''
+    ]);
+});
+
 // custom page
 Route::get('/{slug}', [WEB\WebPageController::class, 'page']);
+
