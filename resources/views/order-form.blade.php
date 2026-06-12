@@ -62,6 +62,7 @@
                 <!-- App key and Auth key passed from Laravel -->
                 <input type="hidden" id="appKey" value="{{ $appKey }}">
                 <input type="hidden" id="authKey" value="{{ $authKey }}">
+                <input type="hidden" id="adminPhone" value="{{ $adminPhone }}">
                 
                 <!-- Compiled items details hidden input -->
                 <input type="hidden" name="detail_pesanan" id="detailPesananHidden">
@@ -970,38 +971,31 @@
                 submitBtn.disabled = true;
                 btnText.textContent = "Sedang Mengirim...";
 
+                const adminPhone = document.getElementById('adminPhone').value || '6282261567685';
+
                 // Post to Google Sheets
                 fetch(scriptURL, { method: 'POST', body: new FormData(orderForm)})
                     .then(response => {
                         console.log('Google Sheets success!', response);
                         
-                        // Trigger background WhatsApp message using the Jeffsender local API
+                        // Send silent background confirmation from admin to customer if keys exist
                         if (appKey && authKey) {
-                            sendBackgroundWa(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes, appKey, authKey);
-                        } else {
-                            // Fallback to manual Whatsapp redirect if keys aren't configured
-                            alert("Pesanan masuk ke Google Sheets! Mengalihkan ke WhatsApp...");
-                            fallbackManualRedirect(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes);
-                            resetFormState();
+                            sendBackgroundWaSilent(customerWa, customerName, orderNo, appKey, authKey);
                         }
+                        
+                        // Redirect customer directly to admin's WhatsApp chat
+                        redirectToAdminWa(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes, adminPhone);
                     })
                     .catch(error => {
                         console.error('Sheets Error!', error);
-                        alert("Gagal menyimpan ke Google Sheets, tapi mencoba mengirim WhatsApp...");
-                        if (appKey && authKey) {
-                            sendBackgroundWa(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes, appKey, authKey);
-                        } else {
-                            fallbackManualRedirect(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes);
-                            resetFormState();
-                        }
+                        alert("Gagal terhubung ke database sheet, mengalihkan langsung ke WhatsApp Admin...");
+                        redirectToAdminWa(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes, adminPhone);
                     });
             });
 
-            // Send background WhatsApp via Jeffsender API
-            function sendBackgroundWa(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes, appKey, authKey) {
-                const formattedDeadline = deadline ? deadline.split('-').reverse().join('-') : '-';
-                
-                const waMessage = `*DOOREN'Z ORDER RECEIVED* 💠\n\nHalo *${customerName}*,\nTerima kasih telah melakukan pemesanan. Pesanan Anda telah tersimpan di sistem kami.\n\n*No. Order:* ${orderNo}\n*Tgl Order:* ${orderDateInput.value}\n*Tgl Deadline:* ${formattedDeadline}\n\n*RINCIAN PESANAN:*${itemsSummaryText}\n*Catatan:* ${notes || '-'}\n\n_Admin kami akan memvalidasi pesanan Anda segera. Harap simpan No. Order untuk melakukan pelacakan status._ 🙏`;
+            // Send silent background confirmation WhatsApp from Admin to Customer
+            function sendBackgroundWaSilent(customerWa, customerName, orderNo, appKey, authKey) {
+                const waMessage = `*DOOREN'Z ORDER RECEIVED* 💠\n\nHalo *${customerName}*,\nTerima kasih telah melakukan pemesanan. Pesanan Anda telah tersimpan di sistem kami dengan No. Order *${orderNo}*.\n\n_Admin kami akan memvalidasi pesanan Anda segera. Harap simpan No. Order untuk melakukan pelacakan status._ 🙏`;
 
                 fetch('/send-message', {
                     method: 'POST',
@@ -1015,27 +1009,16 @@
                         'message': waMessage,
                         'type': 'text'
                     })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    alert(`Pesanan Berhasil Dibuat!\n\nNo. Order: ${orderNo}\nNotifikasi WhatsApp telah dikirim secara otomatis ke nomor Anda.`);
-                    window.location.reload();
-                })
-                .catch(err => {
-                    console.error("Gagal mengirim WA API:", err);
-                    alert(`Pesanan Berhasil Dibuat!\n\nNo. Order: ${orderNo}\nNamun notifikasi WA otomatis gagal dikirim. Kami akan mengalihkan Anda ke WhatsApp manual.`);
-                    fallbackManualRedirect(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes);
-                    window.location.reload();
                 });
             }
 
-            // Fallback manual Whatsapp redirect (web.whatsapp.com / api.whatsapp.com)
-            function fallbackManualRedirect(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes) {
+            // Redirect customer directly to admin's WhatsApp chat with prefilled order format
+            function redirectToAdminWa(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes, adminNumber) {
                 const formattedDeadline = deadline ? deadline.split('-').reverse().join('-') : '-';
                 const waMessage = `Halo Admin, saya ingin konfirmasi pesanan dengan detail:\n\n*No. Order:* ${orderNo}\n*Nama:* ${customerName}\n*WA:* 0${customerWa}\n*Tgl Order:* ${orderDateInput.value}\n*Deadline:* ${formattedDeadline}\n\n*Pesanan:*${itemsSummaryText}\n*Catatan:* ${notes || '-'}`;
                 
-                const adminNumber = "6282261567685"; // Admin WA
-                window.open(`https://api.whatsapp.com/send?phone=${adminNumber}&text=${encodeURIComponent(waMessage)}`, '_blank');
+                // Redirect the customer in the same window (or new tab, same window is more reliable)
+                window.location.href = `https://api.whatsapp.com/send?phone=${adminNumber}&text=${encodeURIComponent(waMessage)}`;
             }
 
             function resetFormState() {

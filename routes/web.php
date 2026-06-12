@@ -42,13 +42,23 @@ Route::get('/ai-tools', [WEB\WebPageController::class, 'aiTools'])->name('ai-too
 Route::get('/oauth/google', [GoogleAuthController::class, 'redirectTo']);
 Route::get('/oauth/google/callback', [GoogleAuthController::class, 'handleCallback']);
 
-Route::get('/order', function () {
-    $app = \Modules\WhatsappWeb\App\Models\WhatsappWebApp::with('user')->first();
+Route::get('/order/{uuid?}', function ($uuid = null) {
+    if ($uuid) {
+        $platform = \App\Models\Platform::where('uuid', $uuid)->firstOrFail();
+    } else {
+        $platform = \App\Models\Platform::firstOrFail();
+    }
+    
+    $app = \Modules\WhatsappWeb\App\Models\WhatsappWebApp::where('platform_id', $platform->id)->first();
+    $adminPhone = data_get($platform->meta, 'phone_number', '6282261567685');
+    
     return view('order-form', [
         'appKey' => $app?->key ?? '',
-        'authKey' => $app?->user?->authkey ?? ''
+        'authKey' => $app?->user?->authkey ?? '',
+        'adminPhone' => $adminPhone
     ]);
-});
+})->name('public.order-form');
+
 
 // custom page
 Route::get('/{slug}', [WEB\WebPageController::class, 'page']);
