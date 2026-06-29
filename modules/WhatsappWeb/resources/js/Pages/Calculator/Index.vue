@@ -1,10 +1,11 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
+import axios from 'axios'
 import UserLayout from '@/Layouts/User/UserLayout.vue'
 
 defineOptions({ layout: UserLayout })
 
-const props = defineProps(['productTypes', 'bahanOptions', 'laminasiOptions'])
+const props = defineProps(['productTypes', 'bahanOptions', 'laminasiOptions', 'isDoorenz'])
 
 // ─── Form State ───────────────────────────────────────────────
 const form = ref({
@@ -12,6 +13,7 @@ const form = ref({
   qty: 1000,
   material: '',
   laminasi: 'none',
+  warna: 'full',
   dimensions: {},
 })
 
@@ -77,22 +79,291 @@ const dimensionFields = {
     { key: 't_krkn', label: 'T Karkasan (cm)', placeholder: '5' },
     { key: 't_tutup', label: 'T Tutup (cm)', placeholder: '5' },
   ],
+  customFlat: [
+    { key: 'p', label: 'Panjang Jadi (cm)', placeholder: '21' },
+    { key: 'l', label: 'Lebar Jadi (cm)', placeholder: '15' },
+  ],
 }
 
 const currentFields = computed(() => dimensionFields[form.value.type] || [])
+
+// ─── Presets per product type ─────────────────────────────────
+const presets = {
+  // Lunch Box
+  lunchBox: [
+    { label: 'XS  – 10×10 / T:4.5',     values: { p_atas: 10,   l_atas: 10,   p_bawah: 8.5, l_bawah: 8.5, t: 4.5, tutup: 2.5 } },
+    { label: 'S   – 13×10 / T:4.5',     values: { p_atas: 13,   l_atas: 10,   p_bawah: 11,  l_bawah: 8,   t: 4.5, tutup: 2.5 } },
+    { label: 'M   – 17.5×10.5 / T:5',   values: { p_atas: 17.5, l_atas: 10.5, p_bawah: 16,  l_bawah: 9,   t: 5,   tutup: 2.5 } },
+    { label: 'L   – 20×12 / T:5',       values: { p_atas: 20,   l_atas: 12,   p_bawah: 18,  l_bawah: 11,  t: 5,   tutup: 2.5 } },
+    { label: 'Corndog – 17×6 / T:5',    values: { p_atas: 17,   l_atas: 6,    p_bawah: 15,  l_bawah: 4,   t: 5,   tutup: 4   } },
+  ],
+  // Rice Box
+  riceBox: [
+    { label: 'S  – 9.5×8 / T:8',        values: { p_atas: 9.5, l_atas: 8,   p_bawah: 8, l_bawah: 6.5, t: 8,    tutup: 3   } },
+    { label: 'M  – 9.5×8 / T:10',       values: { p_atas: 9.5, l_atas: 8,   p_bawah: 8, l_bawah: 6.5, t: 10,   tutup: 3   } },
+    { label: 'L  – 11×9.5 / T:11.5',    values: { p_atas: 11,  l_atas: 9.5, p_bawah: 9, l_bawah: 8,   t: 11.5, tutup: 3.5 } },
+  ],
+  // Dine In
+  dineIn: [
+    { label: 'XS – 12×8 / T:2.5',       values: { p: 12, l: 8,    t: 2.5  } },
+    { label: 'S  – 11×9 / T:3.5',       values: { p: 11, l: 9,    t: 3.5  } },
+    { label: 'M  – 16×9 / T:4',         values: { p: 16, l: 9,    t: 4    } },
+    { label: 'L  – 18×10.5 / T:3.25',   values: { p: 18, l: 10.5, t: 3.25 } },
+    { label: 'XL – 18×15.5 / T:5',      values: { p: 18, l: 15.5, t: 5    } },
+  ],
+  // Kotak Tutup Terpisah
+  kotakTutupTerpisah: [
+    { label: 'S  15×15',   values: { p_bawah: 15, l_bawah: 15, t_bawah: 5,   p_atas: 15.4, l_atas: 15.4, t_atas: 3   } },
+    { label: 'M  20×20',   values: { p_bawah: 20, l_bawah: 20, t_bawah: 7,   p_atas: 20.4, l_atas: 20.4, t_atas: 3   } },
+    { label: 'L  25×25',   values: { p_bawah: 25, l_bawah: 25, t_bawah: 8,   p_atas: 25.4, l_atas: 25.4, t_atas: 3.5 } },
+    { label: 'Kue 23×23',  values: { p_bawah: 23, l_bawah: 23, t_bawah: 7.5, p_atas: 18,   l_atas: 18,   t_atas: 3   } },
+  ],
+  // Kotak Sambung – Nama Pelanggan Asli
+  kotakSambung: [
+    { label: 'Pisang Adina / Ayam Setia', values: { p: 16,   l: 10,   t: 5,   tutup: 5   } },
+    { label: 'Dapoer TJ',                 values: { p: 18,   l: 16,   t: 7,   tutup: 7   } },
+    { label: 'Martabak Leo',              values: { p: 18,   l: 12,   t: 5,   tutup: 2.5 } },
+    { label: 'Warung Kediri',             values: { p: 18,   l: 18,   t: 5.5, tutup: 5.5 } },
+    { label: 'Pawon Rasa',                values: { p: 19.5, l: 19.5, t: 6,   tutup: 2.5 } },
+    { label: 'Ayam Geprek Dapur Chef',    values: { p: 14,   l: 10.5, t: 6.5, tutup: 3.3 } },
+    { label: 'Demi Donat Kecil',          values: { p: 18,   l: 10,   t: 8,   tutup: 8   } },
+    { label: 'Nats Time',                 values: { p: 16,   l: 12,   t: 7,   tutup: 7   } },
+    { label: 'Demi Donat Besar',          values: { p: 29,   l: 20,   t: 6,   tutup: 6   } },
+    { label: 'Balok Lumer',               values: { p: 13.5, l: 13.5, t: 4,   tutup: 4   } },
+    { label: 'Zaki Donat',                values: { p: 27,   l: 18.5, t: 4.5, tutup: 4.5 } },
+  ],
+  // Straight Tuck End
+  straightTuckEnd: [
+    { label: 'Bumbu S – 8×4 / T:10',    values: { p: 8,  l: 4, t: 10, lem: 1.5 } },
+    { label: 'Bumbu M – 10×6 / T:14',   values: { p: 10, l: 6, t: 14, lem: 1.5 } },
+    { label: 'S – 10×5 / T:15',         values: { p: 10, l: 5, t: 15, lem: 1.5 } },
+    { label: 'M – 12×7 / T:18',         values: { p: 12, l: 7, t: 18, lem: 1.5 } },
+    { label: 'L – 15×9 / T:22',         values: { p: 15, l: 9, t: 22, lem: 1.5 } },
+  ],
+  // Kebab
+  kebab: [
+    { label: 'Mini     – 20×7',          values: { p: 20, l: 7,  lem: 1.5 } },
+    { label: 'Standard – 26×9',          values: { p: 26, l: 9,  lem: 1.5 } },
+    { label: 'Large    – 30×10',         values: { p: 30, l: 10, lem: 1.5 } },
+  ],
+  // Kotak Mug
+  kotakMug: [
+    { label: 'Mug S  – 8×11 / T:10',    values: { p: 8,  l: 11, t: 10, lem: 1.3, kunci_bawah: 8 } },
+    { label: 'Mug M  – 9×12 / T:11',    values: { p: 9,  l: 12, t: 11, lem: 1.3, kunci_bawah: 8 } },
+    { label: 'Termos – 10×14 / T:12',   values: { p: 10, l: 14, t: 12, lem: 1.3, kunci_bawah: 9 } },
+  ],
+  // Burger
+  burger: [
+    { label: 'Slider – 8×8 / T:4',      values: { p: 8,  l: 8,  t_bawah: 3, t_krkn: 4, t_tutup: 4 } },
+    { label: 'S      – 10×10 / T:4',    values: { p: 10, l: 10, t_bawah: 4, t_krkn: 5, t_tutup: 5 } },
+    { label: 'M      – 12×12 / T:5',    values: { p: 12, l: 12, t_bawah: 5, t_krkn: 6, t_tutup: 6 } },
+    { label: 'L      – 13×13 / T:5',    values: { p: 13, l: 13, t_bawah: 5, t_krkn: 7, t_tutup: 7 } },
+  ],
+  customFlat: [
+    { label: 'A3+ (48.3×32.9 cm)', values: { p: 48.3, l: 32.9 } },
+    { label: 'A4 (29.7×21 cm)', values: { p: 29.7, l: 21 } },
+    { label: 'A5 (21×14.85 cm)', values: { p: 21, l: 14.85 } },
+    { label: 'F4 / Folio (33×21.6 cm)', values: { p: 33, l: 21.6 } },
+    { label: 'Kartu Nama (9×5.5 cm)', values: { p: 9, l: 5.5 } },
+    { label: 'Flyer A5 (21×14.85 cm)', values: { p: 21, l: 14.85 } },
+    { label: 'Nota 1/4 Folio (21×10 cm)', values: { p: 21, l: 10 } },
+  ],
+}
+
+const currentPresets = computed(() => presets[form.value.type] || [])
+
+const applyPreset = (preset) => {
+  form.value.dimensions = { ...preset.values }
+}
 
 // Reset dimensions when type changes
 watch(() => form.value.type, () => {
   form.value.dimensions = {}
 })
 
+// Watch material to apply Kraft rules (no laminasi, limit warna to 1 or 2)
+watch(() => form.value.material, (newMaterial) => {
+  if (newMaterial === 'kraft290_off') {
+    form.value.laminasi = 'none'
+    if (form.value.warna === 'full') {
+      form.value.warna = '1'
+    }
+  }
+})
+
+// Watch minQty to adjust quantity dynamically if it is below minimum
+const minQty = computed(() => {
+  const isDig = form.value.material?.includes('_dig') || form.value.material?.startsWith('dtf_')
+  return isDig ? 50 : 1000
+})
+
+watch(minQty, (newMin) => {
+  if (form.value.qty < newMin) {
+    form.value.qty = newMin
+  }
+})
+
+// ─── Material Category Tabs ───
+const activeCategory = ref('offset')
+
+const filteredBahanOptions = computed(() => {
+  const options = {}
+  for (const [key, name] of Object.entries(props.bahanOptions || {})) {
+    const isDig = key.includes('_dig') || key.startsWith('dtf_')
+    if (activeCategory.value === 'digital' && isDig) {
+      options[key] = name
+    } else if (activeCategory.value === 'offset' && !isDig) {
+      options[key] = name
+    }
+  }
+  return options
+})
+
+const selectCategory = (cat) => {
+  activeCategory.value = cat
+  const firstKey = Object.keys(props.bahanOptions || {}).find(key => {
+    const isDig = key.includes('_dig') || key.startsWith('dtf_')
+    return cat === 'digital' ? isDig : !isDig
+  })
+  if (firstKey) {
+    form.value.material = firstKey
+  }
+}
+
+watch(() => form.value.material, (newMat) => {
+  if (newMat) {
+    activeCategory.value = newMat.includes('_dig') || newMat.startsWith('dtf_') ? 'digital' : 'offset';
+  }
+}, { immediate: true })
+
+watch(() => props.bahanOptions, (options) => {
+  if (options && !form.value.material) {
+    const firstKey = Object.keys(options).find(key => !key.includes('_dig') && !key.startsWith('dtf_'))
+    if (firstKey) {
+      form.value.material = firstKey
+    }
+  }
+}, { immediate: true })
+
 // ─── Calculation ───────────────────────────────────────────────
 const loading = ref(false)
 const result  = ref(null)
 const error   = ref(null)
 
+const isDigitalAllowed = computed(() => {
+  if (!form.value.type) return true
+  
+  const v = form.value.dimensions || {}
+  let w = 0
+  let h = 0
+  const bleed = 0.1
+  
+  switch (form.value.type) {
+    case 'lunchBox':
+    case 'riceBox':
+      const p_atas = parseFloat(v.p_atas || 0)
+      const l_atas = parseFloat(v.l_atas || 0)
+      const p_bawah = parseFloat(v.p_bawah || 0)
+      const l_bawah = parseFloat(v.l_bawah || 0)
+      const t = parseFloat(v.t || 0)
+      const tutup = parseFloat(v.tutup || 0)
+      w = l_atas + l_bawah + (2 * t) + tutup
+      h = p_bawah + (2 * t)
+      break
+      
+    case 'dineIn':
+      const p_d = parseFloat(v.p || 0)
+      const l_d = parseFloat(v.l || 0)
+      const t_d = parseFloat(v.t || 0)
+      w = p_d + (2 * t_d)
+      h = l_d + (2 * t_d)
+      break
+      
+    case 'kotakTutupTerpisah':
+      const p_b = parseFloat(v.p_bawah || 0)
+      const l_b = parseFloat(v.l_bawah || 0)
+      const t_b = parseFloat(v.t_bawah || 0)
+      const p_a = parseFloat(v.p_atas || 0)
+      const l_a = parseFloat(v.l_atas || 0)
+      const t_a = parseFloat(v.t_atas || 0)
+      
+      const wB = p_b + (2 * t_b) + 2 * bleed
+      const hB = l_b + (2 * t_b) + 2 * bleed
+      const wA = p_a + (2 * t_a) + 2 * bleed
+      const hA = l_a + (2 * t_a) + 2 * bleed
+      
+      const fits = (wPart, hPart) => {
+        return (wPart <= 47 && hPart <= 32) || (wPart <= 32 && hPart <= 47)
+      }
+      return fits(wB, hB) && fits(wA, hA)
+      
+    case 'kotakSambung':
+      const p_s = parseFloat(v.p || 0)
+      const l_s = parseFloat(v.l || 0)
+      const t_s = parseFloat(v.t || 0)
+      const tutup_s = parseFloat(v.tutup || 0)
+      w = (l_s * 2) + (t_s * 2) + tutup_s
+      h = (t_s * 2) + p_s
+      break
+      
+    case 'straightTuckEnd':
+      const p_ste = parseFloat(v.p || 0)
+      const l_ste = parseFloat(v.l || 0)
+      const t_ste = parseFloat(v.t || 0)
+      const lem_ste = parseFloat(v.lem || 1.5)
+      w = (p_ste * 2) + (l_ste * 2) + lem_ste
+      h = t_ste + l_ste
+      break
+      
+    case 'kebab':
+      const p_k = parseFloat(v.p || 0)
+      const l_k = parseFloat(v.l || 0)
+      const lem_k = parseFloat(v.lem || 1.5)
+      w = p_k
+      h = (l_k * 2) + lem_k
+      break
+      
+    case 'kotakMug':
+      const p_m = parseFloat(v.p || 0)
+      const l_m = parseFloat(v.l || 0)
+      const t_m = parseFloat(v.t || 0)
+      const lem_m = parseFloat(v.lem || 1.3)
+      const kunci_m = parseFloat(v.kunci_bawah || 8)
+      w = (2 * (p_m + l_m)) + lem_m
+      h = t_m + l_m + kunci_m
+      break
+      
+    case 'burger':
+      const p_bu = parseFloat(v.p || 0)
+      const l_bu = parseFloat(v.l || 0)
+      const tb_bu = parseFloat(v.t_bawah || 4)
+      const tk_bu = parseFloat(v.t_krkn || 5)
+      const tt_bu = parseFloat(v.t_tutup || 5)
+      w = (l_bu * 2) + (tb_bu * 3) + tt_bu
+      h = (tk_bu * 2) + p_bu
+      break
+      
+    case 'customFlat':
+      w = parseFloat(v.p || 0)
+      h = parseFloat(v.l || 0)
+      break
+  }
+  
+  w += 2 * bleed
+  h += 2 * bleed
+  
+  return (w <= 47 && h <= 32) || (w <= 32 && h <= 47)
+})
+
+watch(isDigitalAllowed, (allowed) => {
+  if (!allowed && activeCategory.value === 'digital') {
+    selectCategory('offset')
+  }
+})
+
 const canCalculate = computed(() => {
   if (!form.value.type || !form.value.material || !form.value.qty) return false
+  if (form.value.qty < minQty.value) return false
   const fields = currentFields.value
   return fields.every(f => form.value.dimensions[f.key] && parseFloat(form.value.dimensions[f.key]) > 0)
 })
@@ -109,6 +380,7 @@ const calculate = async () => {
       qty:        form.value.qty,
       material:   form.value.material,
       laminasi:   form.value.laminasi,
+      warna:      form.value.warna,
       dimensions: form.value.dimensions,
     })
     result.value = res.data
@@ -128,7 +400,7 @@ const formatRp = (val) => {
 const productIcon = (type) => {
   const icons = {
     lunchBox: '🥡', riceBox: '🍱', dineIn: '🥗', kotakTutupTerpisah: '📦',
-    kotakSambung: '📫', straightTuckEnd: '📮', kebab: '🌯', kotakMug: '☕', burger: '🍔',
+    kotakSambung: '📫', straightTuckEnd: '📮', kebab: '🌯', kotakMug: '☕', burger: '🍔', customFlat: '📄',
   }
   return icons[type] || '📦'
 }
@@ -137,7 +409,9 @@ const materialIcon = (key) => {
   if (key.includes('kraft')) return '🟫'
   if (key.includes('ivory')) return '⬜'
   if (key.includes('duplex')) return '🔲'
-  if (key.includes('ap310')) return '✨'
+  if (key.includes('ap')) return '✨'
+  if (key.includes('chromo')) return '🏷️'
+  if (key.includes('vinyl')) return '💦'
   return '📄'
 }
 
@@ -153,6 +427,8 @@ const flatSizeSeparate = computed(() => {
   const fs = result.value.flat_size
   return fs.bawah ? fs : null
 })
+
+const showPreviewModal = ref(false)
 </script>
 
 <template>
@@ -163,6 +439,15 @@ const flatSizeSeparate = computed(() => {
       <div>
         <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100">📦 Kalkulator Kemasan Box Custom</h1>
         <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Hitung estimasi harga cetak kemasan box custom full color Dooren'z</p>
+      </div>
+      <div v-if="isDoorenz">
+        <button
+          type="button"
+          @click="showPreviewModal = true"
+          class="flex items-center gap-2 rounded-xl bg-indigo-50 border border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-800 px-4 py-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all shadow-sm"
+        >
+          📐 Lihat Cara Hitung
+        </button>
       </div>
     </div>
 
@@ -215,6 +500,23 @@ const flatSizeSeparate = computed(() => {
           <label class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-400">
             📏 Ukuran / Dimensi <span class="text-red-500">*</span>
           </label>
+
+          <!-- Preset chips -->
+          <div v-if="currentPresets.length" class="space-y-1.5">
+            <p class="text-[11px] text-gray-400 dark:text-gray-500">💡 Pilih ukuran referensi (opsional):</p>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="preset in currentPresets"
+                :key="preset.label"
+                type="button"
+                @click="applyPreset(preset)"
+                class="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-600 transition-all hover:bg-indigo-100 hover:border-indigo-400 dark:border-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40"
+              >
+                {{ preset.label }}
+              </button>
+            </div>
+          </div>
+
           <div class="grid grid-cols-2 gap-2">
             <div v-for="field in currentFields" :key="field.key">
               <label class="mb-0.5 block text-[11px] text-gray-500 dark:text-gray-400">{{ field.label }}</label>
@@ -238,12 +540,12 @@ const flatSizeSeparate = computed(() => {
           <input
             v-model.number="form.qty"
             type="number"
-            min="1"
+            :min="minQty"
             step="100"
             class="input w-full"
-            placeholder="Min. 500 pcs"
+            :placeholder="'Min. ' + minQty + ' pcs'"
           />
-          <p class="mt-1 text-[11px] text-gray-400">Minimal order: 500 pcs (offset) atau 50 pcs (digital)</p>
+          <p class="mt-1 text-[11px] text-gray-400">Minimal order: 1000 pcs (offset) atau 50 pcs (digital)</p>
         </div>
 
         <!-- 4. Bahan Kertas -->
@@ -251,9 +553,41 @@ const flatSizeSeparate = computed(() => {
           <label class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-400">
             📄 Bahan Kertas <span class="text-red-500">*</span>
           </label>
-          <div class="space-y-1.5">
+          
+          <!-- Category Selector Tabs -->
+          <div v-if="isDoorenz">
+            <div class="mb-2 flex gap-2">
+              <button
+                type="button"
+                @click="selectCategory('offset')"
+                class="flex-1 rounded-lg border py-2 text-center text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                :class="activeCategory === 'offset'
+                  ? 'border-primary-500 bg-primary-600 text-white shadow-sm'
+                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400 dark:hover:bg-dark-700'"
+              >
+                🏭 Offset
+              </button>
+              <button
+                v-if="isDigitalAllowed"
+                type="button"
+                @click="selectCategory('digital')"
+                class="flex-1 rounded-lg border py-2 text-center text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                :class="activeCategory === 'digital'
+                  ? 'border-primary-500 bg-primary-600 text-white shadow-sm'
+                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400 dark:hover:bg-dark-700'"
+              >
+                ⚡ Digital Printing
+              </button>
+            </div>
+            <p v-if="!isDigitalAllowed" class="mb-3 text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+              ⚠️ Ukuran box terlalu besar untuk kertas cetak digital A3+ (Maks. 32x47 cm).
+            </p>
+          </div>
+
+          <!-- Filtered Materials List -->
+          <div class="space-y-1.5 max-h-96 overflow-y-auto pr-1">
             <button
-              v-for="(name, key) in bahanOptions"
+              v-for="(name, key) in filteredBahanOptions"
               :key="key"
               @click="form.material = key"
               class="flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all"
@@ -277,7 +611,10 @@ const flatSizeSeparate = computed(() => {
           <label class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-400">
             ✨ Laminasi
           </label>
-          <div class="grid grid-cols-3 gap-1.5">
+          <div v-if="form.material === 'kraft290_off'" class="rounded-lg bg-gray-100 p-2.5 text-xs text-gray-500 dark:bg-dark-800 dark:text-gray-400 border border-gray-200 dark:border-dark-700">
+            💡 Bahan Kraft sudah dilapisi laminasi PE (anti air/minyak) bawaan.
+          </div>
+          <div v-else class="grid grid-cols-3 gap-1.5">
             <button
               v-for="(name, key) in laminasiOptions"
               :key="key"
@@ -288,6 +625,39 @@ const flatSizeSeparate = computed(() => {
                 : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-primary-300 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-400'"
             >
               {{ name }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 6. Warna Cetak -->
+        <div v-if="isDoorenz">
+          <label class="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-400">
+            🎨 Warna Cetak <span class="text-red-500">*</span>
+          </label>
+          <div class="grid grid-cols-3 gap-1.5" v-if="form.material === 'kraft290_off'">
+            <button
+              v-for="w in ['1', '2']"
+              :key="w"
+              @click="form.warna = w"
+              class="rounded-lg border px-2 py-2 text-xs font-medium transition-all"
+              :class="form.warna === w
+                ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-primary-300 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-400'"
+            >
+              {{ w }} Warna
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5" v-else>
+            <button
+              v-for="w in ['1', '2', '3', 'full']"
+              :key="w"
+              @click="form.warna = w"
+              class="rounded-lg border px-2 py-2 text-xs font-medium transition-all"
+              :class="form.warna === w
+                ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-primary-300 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-400'"
+            >
+              {{ w === 'full' ? 'Full Color (4 Warna)' : w + ' Warna' }}
             </button>
           </div>
         </div>
@@ -340,6 +710,19 @@ const flatSizeSeparate = computed(() => {
         <!-- Hasil Kalkulasi -->
         <template v-if="result && !loading">
 
+          <!-- ── Alert Penawaran Sablon (Qty < 1000) ── -->
+          <div v-if="isDoorenz && result.result?.is_sablon" class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300">
+            <div class="flex gap-2">
+              <span class="text-lg">💡</span>
+              <div>
+                <p class="font-bold text-xs uppercase tracking-wide">Penawaran Sablon 1 Warna</p>
+                <p class="mt-1 text-xs leading-relaxed">
+                  Cetak custom full color minimal <strong>1.000 pcs</strong>. Karena jumlah cetak di bawah minimal, estimasi di atas otomatis dialihkan menggunakan <strong>Sablon Kemasan 1 Warna</strong> (Tanpa Laminasi).
+                </p>
+              </div>
+            </div>
+          </div>
+
           <!-- ── Kartu Harga Utama ── -->
           <div class="rounded-xl border border-primary-200 bg-gradient-to-br from-primary-50 to-blue-50 p-6 shadow-sm dark:border-primary-800 dark:from-primary-900/20 dark:to-blue-900/20">
             <div class="mb-4 flex items-center gap-3">
@@ -386,11 +769,46 @@ const flatSizeSeparate = computed(() => {
               </div>
               <div class="flex justify-between border-b border-gray-100 pb-2 dark:border-dark-700">
                 <dt class="text-gray-500">Laminasi</dt>
-                <dd class="font-semibold text-gray-800 dark:text-gray-200">{{ laminasiOptions[form.laminasi] }}</dd>
+                <dd class="font-semibold text-gray-800 dark:text-gray-200">
+                  {{ isDoorenz && result.result?.is_sablon ? 'Tanpa Laminasi (Otomatis Sablon)' : laminasiOptions[form.laminasi] }}
+                </dd>
+              </div>
+              <div v-if="isDoorenz" class="flex justify-between border-b border-gray-100 pb-2 dark:border-dark-700">
+                <dt class="text-gray-500">Warna Cetak</dt>
+                <dd class="font-semibold text-gray-800 dark:text-gray-200">
+                  {{ form.warna === 'full' ? 'Full Color (4 Warna)' : form.warna + ' Warna' }}
+                </dd>
+              </div>
+              <div v-if="isDoorenz" class="flex justify-between border-b border-gray-100 pb-2 dark:border-dark-700">
+                <dt class="text-gray-500">Metode Cetak</dt>
+                <dd class="font-semibold text-gray-800 dark:text-gray-200">
+                  <span :class="result.result?.is_sablon ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-gray-800 dark:text-gray-200'">
+                    {{ result.result?.print_method }}
+                  </span>
+                </dd>
               </div>
               <div class="flex justify-between border-b border-gray-100 pb-2 dark:border-dark-700">
                 <dt class="text-gray-500">Jumlah Cetak</dt>
                 <dd class="font-semibold text-gray-800 dark:text-gray-200">{{ Number(form.qty).toLocaleString('id-ID') }} pcs</dd>
+              </div>
+              <div class="flex justify-between border-b border-gray-100 pb-2 dark:border-dark-700" v-if="isDoorenz && form.material && !form.material.includes('_dig')">
+                <dt class="text-gray-500">Pembagian Plano</dt>
+                <dd class="font-semibold text-gray-800 dark:text-gray-200">Bagi {{ result.result?.items_per_plano }}</dd>
+              </div>
+              <div class="flex justify-between border-b border-gray-100 pb-2 dark:border-dark-700" v-if="isDoorenz && form.material && !form.material.includes('_dig')">
+                <dt class="text-gray-500">Ukuran Kertas Cetak</dt>
+                <dd class="font-semibold text-gray-800 dark:text-gray-200">Bagi {{ result.result?.print_division }}</dd>
+              </div>
+              <div class="flex justify-between border-b border-gray-100 pb-2 dark:border-dark-700" v-if="isDoorenz && form.material && !form.material.includes('_dig')">
+                <dt class="text-gray-500">Tata Letak (Layout)</dt>
+                <dd class="font-semibold text-gray-800 dark:text-gray-200">
+                  <span v-if="result.result?.is_combined" class="text-blue-600 dark:text-blue-400 font-bold">
+                    Gabung Cetak ({{ result.result?.items_per_sheet }} up per lembar)
+                  </span>
+                  <span v-else class="text-gray-600 dark:text-gray-400">
+                    Standar (1 up per lembar)
+                  </span>
+                </dd>
               </div>
             </dl>
           </div>
@@ -459,5 +877,74 @@ const flatSizeSeparate = computed(() => {
         </template>
       </div>
     </div>
+
+    <!-- ── Modal Panduan Ukuran & Cara Hitung ── -->
+    <div
+      v-if="showPreviewModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 transition-opacity duration-300"
+      @click.self="showPreviewModal = false"
+    >
+      <div class="relative w-full max-w-4xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-dark-700 dark:bg-dark-900 transition-all transform duration-300">
+        
+        <!-- Header Modal -->
+        <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-dark-700">
+          <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">📐 Panduan Ukuran Bentangan & Cara Hitung Box Custom</h3>
+          <button
+            type="button"
+            @click="showPreviewModal = false"
+            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl font-bold p-1"
+          >
+            &times;
+          </button>
+        </div>
+
+        <!-- Body Modal -->
+        <div class="max-h-[75vh] overflow-y-auto p-6 space-y-4">
+          <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            Berikut adalah penjelasan visual bagaimana dimensi box custom (Panjang, Lebar, Tinggi, dan Tutup) diratakan menjadi satu lembaran cetak datar (Bentangan plano) sebelum dicetak dan dilipat:
+          </p>
+          
+          <div class="flex justify-center bg-gray-50 dark:bg-dark-950 p-4 rounded-xl border border-gray-150 dark:border-dark-800">
+            <img
+              src="/images/box_calculation_preview.png"
+              alt="Panduan Perhitungan Box Custom"
+              class="max-w-full h-auto rounded-lg shadow-sm"
+            />
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-600 dark:text-gray-400">
+            <div class="bg-gray-50 dark:bg-dark-800 p-3 rounded-lg">
+              <p class="font-bold text-gray-800 dark:text-gray-200 mb-1">💡 Cara Membaca Rumus Bentangan:</p>
+              <ul class="list-disc list-inside space-y-1">
+                <li><b>Lebar (W Jadi)</b>: Lebar bentangan dari kiri ke kanan saat pola kertas diletakkan datar.</li>
+                <li><b>Tinggi (H Jadi)</b>: Tinggi bentangan dari atas ke bawah saat pola kertas diletakkan datar.</li>
+                <li><b>Bleed (+0.75 cm)</b>: Area aman potong di setiap sisi untuk mencegah kertas terpotong meleset saat produksi.</li>
+              </ul>
+            </div>
+            <div class="bg-gray-50 dark:bg-dark-800 p-3 rounded-lg">
+              <p class="font-bold text-gray-800 dark:text-gray-200 mb-1">📏 Contoh Dimensi Bentangan (Kotak Sambung):</p>
+              <ul class="list-disc list-inside space-y-1">
+                <li>Lebar Bentangan (W) = (Lebar × 2) + (Tinggi × 2) + Tutup</li>
+                <li>Tinggi Bentangan (H) = (Tinggi × 2) + Panjang</li>
+                <li><i>Contoh: Box 14x10.5x6.5 cm, Tutup 3.5 cm memiliki bentangan plano W: 37.5 cm dan H: 27 cm.</i></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Modal -->
+        <div class="flex justify-end border-t border-gray-200 px-6 py-3.5 dark:border-dark-700 bg-gray-50 dark:bg-dark-900/50">
+          <button
+            type="button"
+            @click="showPreviewModal = false"
+            class="rounded-xl border border-gray-300 bg-white dark:border-dark-750 dark:bg-dark-800 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-750/50 shadow-sm"
+          >
+            Tutup Panduan
+          </button>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </template>

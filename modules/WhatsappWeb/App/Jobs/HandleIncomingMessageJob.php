@@ -91,9 +91,27 @@ class HandleIncomingMessageJob implements ShouldQueue
     private function handleAutoReply(array $message)
     {
         $fromMe = data_get($message, 'key.fromMe', false);
+        if ($fromMe) {
+            return;
+        }
+
+        $remoteJid = data_get($message, 'key.remoteJid', '');
+        if (str_contains($remoteJid, '@g.us') || str_contains($remoteJid, 'status')) {
+            return;
+        }
 
         // Only trigger auto-reply for incoming text messages
         $messageText = $this->extractMessageText($message);
+
+        $timestamp = data_get($message, 'messageTimestamp');
+        if ($timestamp && (time() - $timestamp) > 300) {
+            logOnDebug('WhatsappWeb: Skipping auto-reply for old message', [
+                'timestamp' => $timestamp,
+                'diff' => time() - $timestamp,
+                'jid' => data_get($message, 'key.remoteJid')
+            ]);
+            return;
+        }
 
         \Log::debug('WhatsappWeb: Analyzing auto-reply', [
             'jid' => data_get($message, 'key.remoteJid'),
@@ -133,8 +151,13 @@ class HandleIncomingMessageJob implements ShouldQueue
             }
 
             if (! $chat) {
-                logOnDebug('WhatsappWeb: Chat not found for JID ' . $jid);
-                return;
+                $chat = \App\Models\Chat::create([
+                    'sessionId' => $this->platform->uuid,
+                    'id' => $jid,
+                    'auto_reply_enabled' => true,
+                    'wlc_mgs_send_at' => null,
+                ]);
+                logOnDebug('WhatsappWeb: Created chat on the fly for JID ' . $jid);
             }
 
             $autoReplyService = new \Modules\WhatsappWeb\App\Services\AutoReplyService(

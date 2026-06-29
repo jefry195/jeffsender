@@ -12,7 +12,7 @@ use Modules\WebScraping\App\Jobs\ScrapeJob;
 echo "=== Jeffsender: Dispatch Pending Scrape Jobs ===" . PHP_EOL;
 echo PHP_EOL;
 
-/** @var \Illuminate\Database\Eloquent\Collection<\App\Models\WebScraping> $records */
+/** @var \Illuminate\Database\Eloquent\Collection<WebScraping> $records */
 $records = WebScraping::where('status', 'pending')->get();
 
 if ($records->isEmpty()) {
@@ -29,7 +29,7 @@ if ($records->isEmpty()) {
     echo "Ditemukan {$records->count()} record dengan status 'pending'." . PHP_EOL;
     echo "Mendispatch ke queue..." . PHP_EOL . PHP_EOL;
 
-    /** @var \App\Models\WebScraping $record */
+    /** @var WebScraping $record */
     foreach ($records as $record) {
         echo "  -> Dispatch: [{$record->id}] {$record->title} ({$record->type})" . PHP_EOL;
         // Reset ke in_progress dan hapus data lama jika ada

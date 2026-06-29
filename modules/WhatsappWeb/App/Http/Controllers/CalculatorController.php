@@ -16,10 +16,15 @@ class CalculatorController extends Controller
     {
         PageHeader::set('Kalkulator Kemasan Box Custom');
 
+        $workspace = auth()->user()?->getCurrentWorkspace();
+        $workspaceName = $workspace?->name ?? '';
+        $isDoorenz = (str_contains(strtolower($workspaceName), 'doorenz') || str_contains(strtolower($workspaceName), "dooren'z"));
+
         return Inertia::render('Calculator/Index', [
-            'productTypes'    => BoxCalculatorService::getProductTypes(),
-            'bahanOptions'    => BoxCalculatorService::getBahanOptions(),
+            'productTypes'    => BoxCalculatorService::getProductTypes($isDoorenz),
+            'bahanOptions'    => BoxCalculatorService::getBahanOptions($isDoorenz),
             'laminasiOptions' => BoxCalculatorService::getLaminasiOptions(),
+            'isDoorenz'       => $isDoorenz,
         ]);
     }
 
@@ -34,21 +39,39 @@ class CalculatorController extends Controller
             'qty'        => 'required|integer|min:1',
             'material'   => 'required|string',
             'laminasi'   => 'required|string',
+            'warna'      => 'nullable|string',
         ]);
 
         try {
+            $workspace = auth()->user()?->getCurrentWorkspace();
+            $workspaceName = $workspace?->name ?? '';
+            $isDoorenz = (str_contains(strtolower($workspaceName), 'doorenz') || str_contains(strtolower($workspaceName), "dooren'z"));
+
+            // Map warna string to integer (full = 4)
+            $warnaStr = $validated['warna'] ?? 'full';
+            $warna = match ($warnaStr) {
+                '1'    => 1,
+                '2'    => 2,
+                '3'    => 3,
+                default => 4, // 'full' atau apapun
+            };
+
             $result = BoxCalculatorService::calculatePrice(
                 $validated['type'],
                 $validated['dimensions'],
                 $validated['qty'],
                 $validated['material'],
-                $validated['laminasi']
+                $validated['laminasi'],
+                $warna,
+                $isDoorenz
             );
 
             // Also include flat size for visualization
             $flatSize = BoxCalculatorService::calculateFlatSize(
                 $validated['type'],
-                $validated['dimensions']
+                $validated['dimensions'],
+                $validated['material'],
+                $isDoorenz
             );
 
             return response()->json([

@@ -16,3 +16,7 @@ use Illuminate\Support\Facades\Broadcast;
 Broadcast::channel('live-chat.{module}.{owner_id}', function ($user, $module, $owner_id) {
     return activeWorkspaceOwnerId() == $owner_id;
 });
+
+Broadcast::channel('Chat.User.{id}', function ($user, $id) {
+    return (int) $user->id === (int) $id;
+});

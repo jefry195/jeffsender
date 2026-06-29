@@ -26,7 +26,7 @@ class HandleAutoReplyJob implements ShouldQueue
     public function handle(): void
     {
         try {
-            AutoReplyService::for($this->incomingMessage)->sendWelcomeMessage()->sendAutoReply();
+            AutoReplyService::for($this->incomingMessage)->sendAutoReply();
         } catch (\Throwable $th) {
             if (app()->hasDebugModeEnabled()) {
                 throw $th;

@@ -179,7 +179,7 @@ class GoogleSheetTracker extends Command
                     if (empty($cleanNumber) || strlen($cleanNumber) < 10) continue;
 
                     $jid = $cleanNumber . "@s.whatsapp.net";
-                    $messageText = "Halo *$customerName*,\n\nPesanan Anda dengan No. Order *$orderNo* saat ini telah *SELESAI* dikerjakan dan siap untuk diambil/dikirim.\n\nTerima kasih telah mempercayakan pesanan Anda kepada kami! 🙏";
+                    $messageText = "Halo *$customerName*! 👋\nKabar gembira, pesanan cetak/sablon dengan No. Order *$orderNo* sudah *SELESAI* dan siap untuk diambil di toko kami! 🎉📦\n\nSilakan mampir pada jam operasional kami ya:\nSenin – Jumat : 09.00 – 18.00 WITA\nSabtu : 09.00 – 17.00 WITA\nMinggu / Tanggal Merah : LIBUR\n\nMohon tunjukkan pesan ini atau sebutkan Nama Pemesan / No. Order saat pengambilan barang di meja kasir. Ditunggu kedatangannya kak! 🤝";
 
                     try {
                         $waService->sendMessage($platformUuid, $jid, ['text' => $messageText], 'text');

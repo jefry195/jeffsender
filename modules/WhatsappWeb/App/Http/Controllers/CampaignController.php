@@ -296,4 +296,49 @@ class CampaignController extends Controller
 
         return back()->with('success', __('Campaign dilanjutkan dari nomor yang belum terkirim.'));
     }
+
+    public function pause(Campaign $campaign)
+    {
+        if (env('DEMO_MODE') && auth()->user()->id == 3) {
+            return back()->with('danger', __('Permission disabled for demo account please create a test account..!'));
+        }
+
+        if (!in_array($campaign->status, [Campaign::STATUS_PENDING, Campaign::STATUS_SCHEDULED, Campaign::STATUS_SEND])) {
+            return back()->with('danger', 'Hanya campaign yang sedang berjalan atau dijadwalkan yang bisa dijeda.');
+        }
+
+        $campaign->update(['status' => Campaign::STATUS_PAUSED]);
+
+        return back()->with('success', __('Campaign berhasil dijeda.'));
+    }
+
+    public function updateStatus(Request $request, Campaign $campaign)
+    {
+        if (env('DEMO_MODE') && auth()->user()->id == 3) {
+            return back()->with('danger', __('Permission disabled for demo account please create a test account..!'));
+        }
+
+        $validated = $request->validate([
+            'status' => 'required|in:draft,pending,scheduled,send,failed,paused',
+        ]);
+
+        $oldStatus = $campaign->status;
+        $newStatus = $validated['status'];
+
+        if ($oldStatus === $newStatus) {
+            return back();
+        }
+
+        $campaign->update(['status' => $newStatus]);
+
+        if ($newStatus === Campaign::STATUS_PENDING) {
+            try {
+                \Modules\WhatsappWeb\App\Jobs\CampaignSendJob::dispatch($campaign);
+            } catch (\Throwable $th) {
+                return back()->with('danger', $th->getMessage());
+            }
+        }
+
+        return back()->with('success', __('Campaign status updated to :status', ['status' => $newStatus]));
+    }
 }

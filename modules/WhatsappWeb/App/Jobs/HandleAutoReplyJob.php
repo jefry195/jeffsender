@@ -31,6 +31,9 @@ class HandleAutoReplyJob implements ShouldQueue
      */
     public function handle(): void
     {
+        if (str_contains($this->jid, '@g.us') || str_contains($this->jid, 'status')) {
+            return;
+        }
 
         $chat = Chat::query()
             ->where('sessionId', $this->platform->uuid)
@@ -47,9 +50,13 @@ class HandleAutoReplyJob implements ShouldQueue
         }
 
         if (! $chat) {
-            logOnDebug('WhatsappWeb: Chat not found for JID ' . $this->jid);
-
-            return;
+            $chat = Chat::create([
+                'sessionId' => $this->platform->uuid,
+                'id' => $this->jid,
+                'auto_reply_enabled' => true,
+                'wlc_mgs_send_at' => null,
+            ]);
+            logOnDebug('WhatsappWeb: Created chat on the fly for JID ' . $this->jid);
         }
 
 

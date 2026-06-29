@@ -32,6 +32,28 @@ if (! function_exists('amount_format')) {
     }
 }
 
+if (! function_exists('adjust_option_urls')) {
+    function adjust_option_urls($value): mixed
+    {
+        if (is_array($value)) {
+            foreach ($value as $k => $v) {
+                $value[$k] = adjust_option_urls($v);
+            }
+        } elseif (is_string($value)) {
+            $base = request() ? request()->root() : config('app.url');
+            
+            if (Str::contains($value, 'https://wa.doorenzcreative.com')) {
+                $value = str_replace('https://wa.doorenzcreative.com', $base, $value);
+            }
+            
+            if (Str::startsWith($value, '/uploads/') || Str::startsWith($value, '/assets/')) {
+                $value = rtrim($base, '/') . '/' . ltrim($value, '/');
+            }
+        }
+        return $value;
+    }
+}
+
 if (! function_exists('get_option')) {
     /**
      * Get Settings From Database
@@ -52,16 +74,24 @@ if (! function_exists('get_option')) {
         $value = Cache::remember(
             $withLocale ? $key.'_'.current_locale() : $key,
             env('CACHE_LIFETIME', 1800),
-            fn () => Option::query()
-                ->where('key', $key)
-                ->when(
-                    $withLocale,
-                    fn ($query) => $query->where('lang', current_locale())
-                )
-                ->value('value')
+            function () use ($key, $withLocale) {
+                $query = Option::query()->where('key', $key);
+                if ($withLocale) {
+                    $val = (clone $query)->where('lang', current_locale())->value('value');
+                    if ($val !== null) {
+                        return $val;
+                    }
+                    $val = (clone $query)->where('lang', 'en')->value('value');
+                    if ($val !== null) {
+                        return $val;
+                    }
+                }
+                return $query->value('value');
+            }
         );
 
-        return data_get($value, $restKeys, '');
+        $result = data_get($value, $restKeys, '');
+        return adjust_option_urls($result);
     }
 }
 
@@ -71,23 +101,26 @@ if (! function_exists('get_option_with_locale')) {
         $language ??= current_locale();
         $cacheKey = "{$key}_{$language}";
 
-        return cache_remember($cacheKey, function () use ($key, $language, $includeDefault) {
+        $value = cache_remember($cacheKey, function () use ($key, $language, $includeDefault) {
             $option = Option::query()
                 ->where('key', $key)
                 ->where('lang', $language)
                 ->first();
 
-            if (! $option && $includeDefault) {
+            // Fallback: if no record found for current locale, fetch any matching record
+            if (! $option) {
                 $option = Option::query()->where('key', $key)->first();
-                if ($option) {
+                if ($option && $includeDefault) {
                     $optionClone = $option->replicate();
-                    $optionClone->lang = current_locale();
+                    $optionClone->lang = $language;
                     $optionClone->save();
                 }
             }
 
             return $option?->value ?? [];
         });
+
+        return adjust_option_urls($value);
     }
 }
 
@@ -221,3 +254,28 @@ function logOnDebug(string|Stringable $message, array $context = []): void
         Log::debug($message, $context);
     }
 }
+
+function executeSilentCommand(string $command): ?string
+{
+    $descriptorspec = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w']
+    ];
+
+    $process = proc_open($command, $descriptorspec, $pipes, null, null, [
+        'create_no_window' => true
+    ]);
+
+    if (is_resource($process)) {
+        $output = stream_get_contents($pipes[1]);
+        fclose($pipes[0]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        proc_close($process);
+        return $output;
+    }
+
+    return null;
+}
+

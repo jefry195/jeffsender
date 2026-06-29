@@ -21,6 +21,8 @@ Route::group(['middleware' => ['auth', 'user', 'access_module:whatsapp']], funct
     Route::get('campaigns/{campaign}/send', [MODULE\CampaignController::class, 'send'])->name('campaigns.send');
     Route::get('campaigns/{campaign}/copy', [MODULE\CampaignController::class, 'copy'])->name('campaigns.copy');
     Route::get('campaigns/{campaign}/resume', [MODULE\CampaignController::class, 'resume'])->name('campaigns.resume');
+    Route::get('campaigns/{campaign}/pause', [MODULE\CampaignController::class, 'pause'])->name('campaigns.pause');
+    Route::patch('campaigns/{campaign}/update-status', [MODULE\CampaignController::class, 'updateStatus'])->name('campaigns.update-status');
     Route::resource('campaigns', MODULE\CampaignController::class);
     Route::get('get-device-template-list', [MODULE\TemplateController::class, 'getDeviceTemplateList'])->name('device.template.list');
     Route::resource('platforms/{device}/qr-codes', MODULE\DeviceQRCodeController::class)

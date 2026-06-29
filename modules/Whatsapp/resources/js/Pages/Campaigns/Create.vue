@@ -38,13 +38,13 @@ const form = useForm({
   save_as_draft: true,
   _method: 'POST',
   // Anti-ban settings
-  delay_min: 8,
-  delay_max: 15,
-  batch_size_min: 20,
-  batch_size_max: 30,
-  batch_pause_min: 5,
-  batch_pause_max: 10,
-  daily_limit: 150,
+  delay_min: 30,
+  delay_max: 60,
+  batch_size_min: 10,
+  batch_size_max: 15,
+  batch_pause_min: 15,
+  batch_pause_max: 30,
+  daily_limit: 50,
   spam_filter: true,
 })
 

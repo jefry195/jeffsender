@@ -21,7 +21,7 @@ class WhatsAppWebService
 
     public function sessionList()
     {
-        return $this->apiClient()->get('/sessions');
+        return $this->apiClient()->get('/sessions/list');
     }
 
     public function setJid(string $jid)
@@ -95,6 +95,18 @@ class WhatsAppWebService
 
     public function sendMessage(string $sessionId, string $jid, array $message, string $messageType = 'text', string $type = 'number', array $options = [])
     {
+        if ($messageType === 'list') {
+            if (isset($message['text'])) {
+                $message['text'] = $this->replaceShortCodes($message['text'], $jid, $sessionId);
+            }
+            if (isset($message['title'])) {
+                $message['title'] = $this->replaceShortCodes($message['title'], $jid, $sessionId);
+            }
+            if (isset($message['footer'])) {
+                $message['footer'] = $this->replaceShortCodes($message['footer'], $jid, $sessionId);
+            }
+        }
+
         $data = [
             'receiver' => $jid,
             'isGroup' => $type !== 'number',
@@ -247,13 +259,17 @@ class WhatsAppWebService
     private function addPlatformLog($sessionId, $messageType, $response)
     {
         $platform = Platform::query()->where('uuid', $sessionId)->firstOrFail();
+        
+        $text = $response->json('data.message.message.extendedTextMessage.text') 
+            ?? $response->json('data.message.message.conversation') 
+            ?? '';
 
         return $platform->logs()->create([
             'module' => 'whatsapp-web',
             'owner_id' => $platform->owner_id,
             'direction' => 'out',
             'message_type' => $messageType,
-            'message_text' => $response->json('message.extendedTextMessage.text'),
+            'message_text' => $text,
             'meta' => $response->json(),
         ]);
     }
@@ -326,5 +342,47 @@ class WhatsAppWebService
             ->replace('{platform_uuid}', $platformUuid)
             ->replace('{order_link}', $orderLink)
             ->toString();
+    }
+
+    private function convertListToText(array $message): string
+    {
+        $text = "";
+        if (!empty($message['title'])) {
+            $text .= "*" . trim($message['title']) . "*\n\n";
+        }
+        if (!empty($message['text'])) {
+            $text .= trim($message['text']) . "\n\n";
+        }
+        
+        if (!empty($message['sections'])) {
+            foreach ($message['sections'] as $section) {
+                if (!empty($section['title'])) {
+                    $text .= "*" . trim($section['title']) . "*\n";
+                }
+                if (!empty($section['rows'])) {
+                    foreach ($section['rows'] as $row) {
+                        $rowTitle = trim($row['title'] ?? '');
+                        $rowDesc = trim($row['description'] ?? '');
+                        $rowId = !empty($row['rowId']) ? $row['rowId'] : (!empty($row['id']) ? $row['id'] : '');
+                        
+                        $text .= "• *" . $rowTitle . "*";
+                        if ($rowDesc) {
+                            $text .= " - " . $rowDesc;
+                        }
+                        if ($rowId) {
+                            $text .= " (Ketik: *" . $rowId . "*)";
+                        }
+                        $text .= "\n";
+                    }
+                }
+                $text .= "\n";
+            }
+        }
+        
+        if (!empty($message['footer'])) {
+            $text .= "_" . trim($message['footer']) . "_\n";
+        }
+        
+        return trim($text);
     }
 }

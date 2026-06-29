@@ -49,6 +49,8 @@ Route::group(['middleware' => ['auth', 'user', 'access_module:whatsapp-web']], f
     // Campaigns
     Route::resource('campaigns', MODULE\CampaignController::class)->except(['update']);
     Route::get('campaigns/{campaign}/resume', [MODULE\CampaignController::class, 'resume'])->name('campaigns.resume');
+    Route::get('campaigns/{campaign}/pause', [MODULE\CampaignController::class, 'pause'])->name('campaigns.pause');
+    Route::patch('campaigns/{campaign}/update-status', [MODULE\CampaignController::class, 'updateStatus'])->name('campaigns.update-status');
 
     // quick replies
     Route::resource('quick-replies', '\App\Http\Controllers\User\QuickReplyController')->except('show');

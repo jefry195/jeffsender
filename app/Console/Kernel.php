@@ -13,8 +13,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('model:prune')->daily();
-        $schedule->command('sheets:check-status')->everyMinute();
         $schedule->command('sheets:update-pricelist')->daily();
+        $schedule->command('jeffsender:self-heal')->everyFiveMinutes();
     }
 
     /**

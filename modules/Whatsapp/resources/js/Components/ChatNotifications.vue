@@ -16,6 +16,10 @@ onMounted(() => {
 })
 
 const setupChatNotifications = () => {
+  if (!window.Echo || typeof window.Echo.private !== 'function') {
+    console.warn("Laravel Echo is not initialized. Skipping notification subscription.");
+    return;
+  }
   window.Echo.private(`Chat.User.${props.authId}`).listen(
     '.newMessageReceived',
     function (newMessage) {

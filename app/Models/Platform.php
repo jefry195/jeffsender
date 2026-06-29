@@ -17,6 +17,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use App\Traits\{HasActivityLog, HasModule, HasOwner, HasFilter};
 
+/**
+ * @property array|null $meta
+ */
 class Platform extends Model
 {
     use HasFactory, HasModule, HasOwner, HasActivityLog, HasFilter;
@@ -47,7 +50,7 @@ class Platform extends Model
     ];
 
     protected $casts = [
-        'meta' => 'json',
+        'meta' => 'array',
     ];
 
     protected $appends = [
@@ -126,7 +129,9 @@ class Platform extends Model
     {
         $res = $this->getTemplates();
 
-        throw_if($res->failed(), new \Exception($res->json('error.message'), $res->status()));
+        if ($res->failed()) {
+            throw new \Exception($res->json('error.message'), $res->status());
+        }
 
         $res->collect('data')
             ->map(function ($template) {
@@ -217,6 +222,9 @@ class Platform extends Model
             'send_welcome_message' => false,
             'welcome_message_template' => "Hello {name}, how can I help you?",
 
+            'send_ooo_message' => false,
+            'ooo_message_template' => "Halo! Terima kasih telah menghubungi kami. 🙏\n\nSaat ini kami sedang di luar jam operasional. Pesan Anda telah kami terima dan akan kami balas segera setelah kami kembali aktif.\n\nJam operasional kami:\n- Senin – Jumat : 09.00 – 18.00 WITA\n- Sabtu : 09.00 – 17.00 WITA\n- Minggu / Tanggal Merah : LIBUR (Toko tutup)\n\nTerima kasih atas pengertiannya! 😊",
+
             'webhook_callback_url' => "",
         ];
 
@@ -246,6 +254,16 @@ class Platform extends Model
     public function getWelcomeMessageTemplate(): ?string
     {
         return $this->getMeta('welcome_message_template', "");
+    }
+
+    public function isOooMessageEnabled(): bool
+    {
+        return $this->getMeta('send_ooo_message', false);
+    }
+
+    public function getOooMessageTemplate(): ?string
+    {
+        return $this->getMeta('ooo_message_template', "");
     }
 
     public function getActiveChatFlow(): ?Flow

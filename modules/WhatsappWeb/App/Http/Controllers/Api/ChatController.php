@@ -151,7 +151,7 @@ class ChatController extends Controller
                 ])->first();
 
             if ($contact) {
-                $name = $contact->name ?? $contact->verifiedName ?? $contact->notify ?? explode('@', $request->jid)[0] ?? '';
+                $name = $contact->notify ?? $contact->verifiedName ?? $contact->name ?? explode('@', $request->jid)[0] ?? '';
             }
         }
 

@@ -38,6 +38,8 @@ const form = useForm({
   google_sheets_url: '',
   send_welcome_message: false,
   welcome_message_template: '',
+  send_ooo_message: false,
+  ooo_message_template: '',
 })
 
 watch(
@@ -55,6 +57,8 @@ watch(
       form.google_sheets_url = meta.google_sheets_url || ''
       form.send_welcome_message = meta.send_welcome_message
       form.welcome_message_template = meta.welcome_message_template
+      form.send_ooo_message = meta.send_ooo_message ?? false
+      form.ooo_message_template = meta.ooo_message_template ?? ''
     }
   }
 )
@@ -155,6 +159,19 @@ const selectedAutoReplyService = computed(() => {
         <div class="mt-2" v-if="form.send_welcome_message === true">
           <textarea v-model="form.welcome_message_template" class="input" rows="5"></textarea>
           <small>{{ trans('This message will be sent to new users') }}</small>
+        </div>
+      </div>
+
+      <!-- toggle out of operational hours message -->
+      <div class="mb-2">
+        <label>{{ trans('Send Out of Hours message') }}</label>
+        <select class="select" v-model="form.send_ooo_message">
+          <option :value="true">{{ trans('Yes') }}</option>
+          <option :value="false">{{ trans('No') }}</option>
+        </select>
+        <div class="mt-2" v-if="form.send_ooo_message === true">
+          <textarea v-model="form.ooo_message_template" class="input" rows="5"></textarea>
+          <small>{{ trans('This message will be sent outside operational hours / Sunday / Public Holidays') }}</small>
         </div>
       </div>
 

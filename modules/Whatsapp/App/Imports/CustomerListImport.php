@@ -43,8 +43,8 @@ class CustomerListImport implements ToCollection, WithHeadingRow
                 ]
             ]);
 
-            // Attach groups to the current customer
-            if (!empty($this->groupIds)) {
+            // Attach groups to the current customer only if they don't belong to any groups yet
+            if (!empty($this->groupIds) && !$customer->groups()->exists()) {
                 $customer->groups()->syncWithoutDetaching($this->groupIds);
             }
         }

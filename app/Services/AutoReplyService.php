@@ -91,16 +91,23 @@ class AutoReplyService
 
     public function sendAutoReply()
     {
-        if ($this->isAutoReplyEnabled()) {
+        if (! $this->isAutoReplyEnabled()) {
+            logOnDebug('auto reply not enabled');
             return;
         }
 
         $autoReplyMethod = $this->platform->getMeta('auto_reply_method');
 
-        return match ($autoReplyMethod) {
-            'default' => $this->handleDefaultReply(),
-            default => $this->handleModuleAutoReply(),
-        };
+        if ($autoReplyMethod === 'default') {
+            return $this->handleDefaultReply();
+        } else {
+            // For custom modules, send welcome message if enabled
+            $sendWelcomeMessageSetting = $this->platform->getMeta('send_welcome_message', false);
+            if ($sendWelcomeMessageSetting) {
+                $this->sendWelcomeMessageDirect();
+            }
+            return $this->handleModuleAutoReply();
+        }
     }
 
     public function handleModuleAutoReply()
@@ -147,7 +154,6 @@ class AutoReplyService
                 'conversation_id' => $this->conversation->id,
                 'owner_id' => $this->owner->id,
                 'customer_id' => $this->conversation->customer_id,
-
                 'uuid' => null,
                 'direction' => 'out',
                 'type' => $message['type'],
@@ -157,57 +163,37 @@ class AutoReplyService
         }
     }
 
-    public function sendWelcomeMessage(): static
+    public function sendWelcomeMessageDirect(): bool
     {
-        // return if platform not exists
         $platform = $this->platform;
-        if (! $platform) {
-            logOnDebug('platform not found', [
-                'platform' => $platform,
-            ]);
-
-            return $this;
-        }
-
-        // return if auto reply not enabled
-        $send_welcome_message = $platform->getMeta('send_welcome_message', false);
-        if (! $send_welcome_message) {
-            logOnDebug('auto reply not enabled', [
-                'meta' => $platform->meta,
-            ]);
-
-            return $this;
-        }
-
-        // return if auto reply not enabled or message template not found
         $welcomeMessageTemplate = $platform->getMeta('welcome_message_template', '');
         if (! $welcomeMessageTemplate) {
-            logOnDebug('welcome message template not found', [
-                'meta' => $platform->meta,
-            ]);
-
-            return $this;
+            return false;
         }
 
-        // return if last message is not passed 24 hours
-        $lastMsgSend = $this->conversation->getMeta('last_message_at');
-        if ($lastMsgSend && now()->diffInHours($lastMsgSend) < 24) {
-            logOnDebug('last message is not passed 24 hours', [
-                'lastMsgSend' => $lastMsgSend,
-                'diffInHours' => now()->diffInHours($lastMsgSend, true),
-            ]);
+        $messageType = 'text';
+        $messageBody = null;
 
-            return $this;
+        if (preg_match('/\[template:(\d+)\]/', trim($welcomeMessageTemplate), $matches)) {
+            $templateId = (int)$matches[1];
+            $template = \App\Models\Template::find($templateId);
+            if ($template) {
+                $templateService = new TemplateService($template, $this->conversation, $this->conversation->customer);
+                $messageBody = $templateService->generateMessageBody();
+                $messageType = $template->type;
+            }
         }
 
-        $messageBody = ModuleServiceResolver::resolveComposerService($platform->module)->textMessage($welcomeMessageTemplate);
+        if (! $messageBody) {
+            $messageBody = ModuleServiceResolver::resolveComposerService($platform->module)->textMessage($welcomeMessageTemplate);
+        }
 
         if (empty($messageBody)) {
             logOnDebug('message body not found', [
                 'messageBody' => $messageBody,
             ]);
 
-            return $this;
+            return false;
         }
 
         $this->dispatchMessage([
@@ -219,17 +205,36 @@ class AutoReplyService
 
             'uuid' => null,
             'direction' => 'out',
-            'type' => 'text',
+            'type' => $messageType,
             'body' => $messageBody,
             'status' => 'pending',
+            'meta' => [
+                'is_welcome_message' => true
+            ],
         ]);
+
+        return true;
+    }
+
+    public function sendWelcomeMessage(): static
+    {
+        $platform = $this->platform;
+        if (! $platform) {
+            return $this;
+        }
+
+        $send_welcome_message = $platform->getMeta('send_welcome_message', false);
+        if (! $send_welcome_message) {
+            return $this;
+        }
+
+        $this->sendWelcomeMessageDirect();
 
         return $this;
     }
 
     private function handleDefaultReply()
     {
-        // return if prompt not found
         $prompt = $this->messageText;
         if (! $prompt) {
             logOnDebug('no prompt found', [
@@ -239,34 +244,227 @@ class AutoReplyService
             return;
         }
 
-        // return if best match not found
         $bestMatch = $this->findBestMatch($prompt);
-        if (! $bestMatch) {
-            logOnDebug('no best match found', [
-                'prompt' => $prompt,
-            ]);
 
+        // Retrieve welcome template info
+        $welcomeTemplateId = null;
+        $welcomeTemplateSetting = $this->platform->getMeta('welcome_message_template', '');
+        if (preg_match('/\[template:(\d+)\]/', trim($welcomeTemplateSetting), $matches)) {
+            $welcomeTemplateId = (int)$matches[1];
+        }
+
+        if ($bestMatch) {
+            // Check if matched auto-reply is same as welcome message template
+            $isSameAsWelcome = false;
+            if ($welcomeTemplateId && $bestMatch->message_type === 'template' && $bestMatch->template_id == $welcomeTemplateId) {
+                $isSameAsWelcome = true;
+            } elseif ($welcomeTemplateSetting && $bestMatch->message_type === 'text' && trim($bestMatch->message_template) === trim($welcomeTemplateSetting)) {
+                $isSameAsWelcome = true;
+            }
+
+            if ($isSameAsWelcome) {
+                logOnDebug('AutoReply: Sending welcome message template via matched auto-reply');
+                $this->sendWelcomeMessageDirect();
+                return;
+            }
+
+            // It is a DIFFERENT template/message. Send it directly without rate-limiting.
+            $messageType = $bestMatch->message_type;
+            $messageComposer = ModuleServiceResolver::resolveComposerService($this->platform->module);
+            $messageBody = null;
+
+            if ($messageType == 'text') {
+                $messageBody = $messageComposer->textMessage($bestMatch->message_template);
+            } elseif ($messageType == 'template') {
+                $templateService = new TemplateService($bestMatch->template, $this->conversation, $this->conversation->customer);
+                $messageBody = $templateService->generateMessageBody();
+            }
+
+            if (! $messageBody) {
+                return;
+            }
+
+            if ($messageType == 'template') {
+                $messageType = $bestMatch->template->type;
+            }
+
+            $this->dispatchMessage([
+                'module' => $this->activeModule,
+                'platform_id' => $this->platform->id,
+                'conversation_id' => $this->conversation->id,
+                'owner_id' => $this->owner->id,
+                'customer_id' => $this->conversation->customer_id,
+
+                'uuid' => null,
+                'direction' => 'out',
+                'type' => $messageType,
+                'body' => $messageBody,
+                'status' => 'pending',
+            ]);
             return;
         }
 
-        $messageType = $bestMatch->message_type;
-        $messageComposer = ModuleServiceResolver::resolveComposerService($this->platform->module);
+        // If no best match, check if Out of Office is enabled and active
+        if ($this->platform->isOooMessageEnabled() && $this->isOutOfOperationalHours()) {
+            $this->handleOutOfHoursReply();
+            return;
+        }
 
+        // If no best match, check if welcome message should be sent
+        $sendWelcomeMessage = $this->platform->getMeta('send_welcome_message', false);
+        if ($sendWelcomeMessage) {
+            logOnDebug('AutoReply: No match, sending welcome message');
+            $this->sendWelcomeMessageDirect();
+        }
+
+    }
+
+    private function dispatchMessage(array $message)
+    {
+        dispatch(new SendMessageJob($message));
+    }
+
+    private function isAutoReplyEnabled(): bool
+    {
+        return $this->platform &&
+            $this->platform->isAutoReplyEnabled() &&
+            $this->conversation->isAutoReplyEnabled();
+    }
+
+    private function findBestMatch(string $searchQuery): ?AutoReply
+    {
+        $searchTerms = explode(' ', $searchQuery);
+        // Also include the full query as a term so exact-phrase / single-word keywords match
+        $searchTerms[] = $searchQuery;
+        $searchTerms = array_unique($searchTerms);
+
+        $potentialMatches = $this->owner
+            ->autoReplies()
+            ->active()
+            ->module($this->activeModule)
+            ->matchKeywords($searchTerms)
+            ->get();
+
+        $bestMatch = null;
+        $maxMatchCount = 0;
+
+        foreach ($potentialMatches as $potentialMatch) {
+            // Normalize stored keywords to lowercase before comparing
+            $normalizedKeywords = array_map('strtolower', $potentialMatch->keywords);
+            $matchCount = count(array_intersect($searchTerms, $normalizedKeywords));
+
+            if ($matchCount > $maxMatchCount) {
+                $maxMatchCount = $matchCount;
+                $bestMatch = $potentialMatch;
+            }
+        }
+
+        return $bestMatch;
+    }
+
+    public function isOutOfOperationalHours(): bool
+    {
+        $now = now()->timezone('Asia/Makassar');
+        $dateStr = $now->format('Y-m-d');
+        $dayOfWeek = $now->dayOfWeek; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        $currentTime = $now->format('H:i');
+
+        // 1. Check if Sunday (Minggu)
+        if ($dayOfWeek === 0) {
+            return true;
+        }
+
+        // 2. Check if Public Holiday
+        $holidays = [
+            '2026-01-01', // Tahun Baru
+            '2026-01-16', // Isra Mikraj
+            '2026-02-17', // Tahun Baru Imlek
+            '2026-03-19', // Hari Suci Nyepi
+            '2026-03-21', // Idul Fitri
+            '2026-03-22', // Idul Fitri
+            '2026-04-03', // Wafat Yesus Kristus
+            '2026-04-05', // Paskah
+            '2026-05-01', // Hari Buruh
+            '2026-05-14', // Kenaikan Yesus Kristus
+            '2026-05-27', // Idul Adha
+            '2026-05-31', // Waisak
+            '2026-06-01', // Hari Lahir Pancasila
+            '2026-06-16', // Tahun Baru Islam
+            '2026-08-17', // Kemerdekaan RI
+            '2026-08-25', // Maulid Nabi
+            '2026-12-25', // Hari Raya Natal
+        ];
+
+        if (in_array($dateStr, $holidays)) {
+            return true;
+        }
+
+        // 3. Check operational hours
+        if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+            if ($currentTime < '09:00' || $currentTime > '18:00') {
+                return true;
+            }
+        }
+        if ($dayOfWeek === 6) {
+            if ($currentTime < '09:00' || $currentTime > '17:00') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function handleOutOfHoursReply()
+    {
+        $cacheKey = 'ooo_sent_' . $this->platform->id . '_' . $this->conversation->id;
+        if (\Cache::has($cacheKey)) {
+            return;
+        }
+
+        $textMessage = $this->platform->getOooMessageTemplate();
+        if (empty($textMessage)) {
+            return;
+        }
+
+        $oooText = "";
+        if (preg_match('/\[template:(\d+)\]/', trim($textMessage), $matches)) {
+            $templateId = (int)$matches[1];
+            $template = \App\Models\Template::find($templateId);
+            if ($template) {
+                $templateService = new TemplateService($template, $this->conversation, $this->conversation->customer);
+                $meta = $templateService->generateMessageBody();
+                $oooText = $meta['text'] ?? '';
+            }
+        } else {
+            $oooText = $textMessage;
+        }
+
+        if (empty($oooText)) {
+            return;
+        }
+
+        $welcomeTemplateSetting = $this->platform->getWelcomeMessageTemplate();
+        $welcomeTemplate = null;
+        if (preg_match('/\[template:(\d+)\]/', trim($welcomeTemplateSetting), $matches)) {
+            $templateId = (int)$matches[1];
+            $welcomeTemplate = \App\Models\Template::find($templateId);
+        }
+
+        $messageType = 'text';
         $messageBody = null;
 
-        if ($messageType == 'text') {
-            $messageBody = $messageComposer->textMessage($bestMatch->message_template);
-        } elseif ($messageType == 'template') {
-            $templateService = new TemplateService($bestMatch->template, $this->conversation, $this->conversation->customer);
+        if ($welcomeTemplate && $welcomeTemplate->type === 'list') {
+            $templateService = new TemplateService($welcomeTemplate, $this->conversation, $this->conversation->customer);
             $messageBody = $templateService->generateMessageBody();
+            $messageBody['text'] = $oooText;
+            $messageType = 'list';
+        } else {
+            $messageComposer = ModuleServiceResolver::resolveComposerService($this->platform->module);
+            $messageBody = $messageComposer->textMessage($oooText);
         }
 
-        if (! $messageBody) {
+        if (empty($messageBody)) {
             return;
-        }
-
-        if ($messageType == 'template') {
-            $messageType = $bestMatch->template->type;
         }
 
         $this->dispatchMessage([
@@ -283,43 +481,6 @@ class AutoReplyService
             'status' => 'pending',
         ]);
 
-    }
-
-    private function dispatchMessage(array $message)
-    {
-        dispatch(new SendMessageJob($message));
-    }
-
-    private function isAutoReplyEnabled(): bool
-    {
-        return ! $this->platform ||
-            ! $this->platform->isAutoReplyEnabled() ||
-            ! $this->conversation->isAutoReplyEnabled();
-    }
-
-    private function findBestMatch(string $searchQuery): ?AutoReply
-    {
-        $searchTerms = explode(' ', $searchQuery);
-
-        $potentialMatches = $this->owner
-            ->autoReplies()
-            ->active()
-            ->module($this->activeModule)
-            ->matchKeywords($searchTerms)
-            ->get();
-
-        $bestMatch = null;
-        $maxMatchCount = 0;
-
-        foreach ($potentialMatches as $potentialMatch) {
-            $matchCount = count(array_intersect($searchTerms, $potentialMatch->keywords));
-
-            if ($matchCount > $maxMatchCount) {
-                $maxMatchCount = $matchCount;
-                $bestMatch = $potentialMatch;
-            }
-        }
-
-        return $bestMatch;
+        \Cache::put($cacheKey, true, now()->addDay());
     }
 }

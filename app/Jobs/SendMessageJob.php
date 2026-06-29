@@ -32,10 +32,16 @@ class SendMessageJob implements ShouldQueue
 
         if ($sendMessage?->uuid) {
             $conversation = $sendMessage->conversation;
+            $metaUpdates = [
+                'last_message_at' => now(),
+            ];
+
+            if (isset($this->messageAttrs['meta']['is_welcome_message']) && $this->messageAttrs['meta']['is_welcome_message']) {
+                $metaUpdates['wlc_mgs_send_at'] = now()->timestamp;
+            }
+
             $conversation->update([
-                'meta' => array_merge($conversation->meta ?? [], [
-                    'last_message_at' => now(),
-                ]),
+                'meta' => array_merge($conversation->meta ?? [], $metaUpdates),
             ]);
             try {
                 broadcast(new IncomingNewMessageEvent($sendMessage->toArray()));

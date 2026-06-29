@@ -7,7 +7,7 @@ import {
 import logger from '../utils/logger.js'
 import {
     formatGroup,
-    formatPhone,
+    formatPhone as originalFormatPhone,
     getChatList,
     getMessageBuffer,
     getMessageMedia,
@@ -18,6 +18,14 @@ import {
     readMessage,
     sendMessage,
 } from '../whatsapp.js'
+
+const formatPhone = (phone) => {
+    if (phone && typeof phone === 'string' && phone.endsWith('@lid')) {
+        return phone
+    }
+    return originalFormatPhone(phone)
+}
+
 
 const getList = async (req, res) => {
     const { limit = 20, cursor = null } = req.query
@@ -42,7 +50,7 @@ const send = async (req, res) => {
 
     const filterTypeMessaje = compareAndFilter(Object.keys(message), typesMessage)
     try {
-        const exists = await isExists(session, receiver, isGroup)
+        const exists = receiver && typeof receiver === 'string' && receiver.endsWith('@lid') ? true : await isExists(session, receiver, isGroup)
 
         if (!exists) {
             return response(res, 400, false, 'The receiver number is not exists.')
@@ -92,7 +100,7 @@ const sendBulk = async (req, res) => {
         receiver = formatPhone(receiver)
 
         try {
-            const exists = await isExists(session, receiver)
+            const exists = receiver && typeof receiver === 'string' && receiver.endsWith('@lid') ? true : await isExists(session, receiver)
 
             if (!exists) {
                 errors.push({ key, message: 'number not exists on whatsapp' })

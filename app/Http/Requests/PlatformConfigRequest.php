@@ -44,6 +44,16 @@ class PlatformConfigRequest extends FormRequest
                 'nullable',
                 'max:2000',
             ],
+
+            // Whether to send an OOO message
+            'send_ooo_message' => ['required', 'boolean'],
+
+            // The OOO message template
+            'ooo_message_template' => [
+                'required_if:send_ooo_message,true',
+                'nullable',
+                'max:2000',
+            ],
         ];
 
         if (in_array($this->input('module'), ['whatsapp', 'telegram'])) {

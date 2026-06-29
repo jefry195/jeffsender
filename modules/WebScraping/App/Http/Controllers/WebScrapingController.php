@@ -298,7 +298,9 @@ class WebScrapingController extends Controller
                 ]
             );
 
-            $customer->groups()->syncWithoutDetaching($request->group_ids);
+            if (!$customer->groups()->exists()) {
+                $customer->groups()->syncWithoutDetaching($request->group_ids);
+            }
 
             if ($customer->wasRecentlyCreated) {
                 $imported++;

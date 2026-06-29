@@ -63,6 +63,7 @@
                 <input type="hidden" id="appKey" value="{{ $appKey }}">
                 <input type="hidden" id="authKey" value="{{ $authKey }}">
                 <input type="hidden" id="adminPhone" value="{{ $adminPhone }}">
+                <input type="hidden" id="platformUuid" value="{{ $uuid }}">
                 
                 <!-- Compiled items details hidden input -->
                 <input type="hidden" name="detail_pesanan" id="detailPesananHidden">
@@ -248,7 +249,7 @@
         // ==========================================
         // SCRIPT URL GOOGLE SHEET
         // ==========================================
-        const scriptURL = 'https://script.google.com/macros/s/AKfycbzHc5PQNak2LU0WrR1DNV7bVROLxbrs4LV6OiFH_-kpDfefKaxUxKIKP9AlTDF-4plI/exec'; 
+        const scriptURL = 'https://script.google.com/macros/s/AKfycbwHT7_vgasVww5lr2wmxGmv03vh3ibRDunqLnAeqTfOmdyagaf4E5o4PQtO-XF_bYm4/exec'; 
         // ==========================================
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -283,6 +284,16 @@
             const month = String(today.getMonth() + 1).padStart(2, '0');
             const dateString = `${day}-${month}-${year}`;
             orderDateInput.value = dateString;
+
+            // Load saved customer name and WA from localStorage if available
+            const savedName = localStorage.getItem('customerName');
+            const savedWa = localStorage.getItem('customerWa');
+            if (savedName) {
+                document.getElementById('customerName').value = savedName;
+            }
+            if (savedWa) {
+                customerWaInput.value = savedWa;
+            }
 
             // Format WhatsApp Number (clean non-digits and strip starting 0 or 62)
             customerWaInput.addEventListener('input', function(e) {
@@ -793,15 +804,22 @@
                         </div>
                     </div>
 
-                    <!-- Quantity & Print Color -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Quantity, Tinta, & Desain -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-[11px] font-bold text-gray-500 mb-1">Jumlah</label>
                             <input type="text" class="quantity-input w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" placeholder="Contoh: 1000 pcs" required>
                         </div>
                         <div>
-                            <label class="block text-[11px] font-bold text-gray-500 mb-1">Warna Sablon / Cetak</label>
-                            <input type="text" class="color-input w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" placeholder="Contoh: 1 Warna Hitam">
+                            <label class="block text-[11px] font-bold text-gray-500 mb-1">Tinta</label>
+                            <input type="text" class="color-input w-full px-3 py-2 border border-gray-200 rounded-xl text-sm" placeholder="Contoh: HIJAU TUA">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 mb-1">Desain</label>
+                            <select class="desain-select w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white">
+                                <option value="Desain Baru (Perlu dibuatkan)">Desain Baru (Perlu dibuatkan)</option>
+                                <option value="Desain Lama (Sudah pernah order)">Desain Lama (Sudah pernah order)</option>
+                            </select>
                         </div>
                     </div>
                 `;
@@ -898,6 +916,10 @@
                     return;
                 }
 
+                // Save to localStorage immediately on submit so repeat orders don't require typing name/phone again
+                localStorage.setItem('customerName', customerName);
+                localStorage.setItem('customerWa', customerWa);
+
                 // Compile all items details into a readable list
                 const itemBlocks = document.querySelectorAll('.item-block');
                 if (itemBlocks.length === 0) {
@@ -915,6 +937,7 @@
                     const [group, productName] = productSelect.value.split('|');
                     const qty = block.querySelector('.quantity-input')?.value || '';
                     const color = block.querySelector('.color-input')?.value || '';
+                    const desain = block.querySelector('.desain-select')?.value || 'Desain Baru (Perlu dibuatkan)';
                     
                     let details = [];
                     
@@ -969,12 +992,30 @@
                         if (finish) details.push(`Finishing: ${finish}`);
                     }
                     
-                    if (color) details.push(`Warna Cetak: ${color}`);
-
                     const detailsStr = details.join(', ');
-                    itemsSummaryText += `\n*Item #${idx + 1}:* ${productName}\n  - Qty: ${qty}\n  - Spec: ${detailsStr}\n`;
-                    itemsSummaryHtml += `[Item #${idx + 1}: ${productName} (Qty: ${qty}, Spec: ${detailsStr})] `;
+                    const specDetails = detailsStr ? ` (${detailsStr})` : '';
+                    
+                    if (idx > 0) {
+                        itemsSummaryText += '\n';
+                    }
+                    itemsSummaryText += `*${idx + 1}. ${productName}*\n` +
+                                       `   - Kategori: ${group}\n` +
+                                       `   - Jumlah: ${qty}\n` +
+                                       `   - Tinta: ${color || '-'}\n`;
+                    if (specDetails) {
+                        itemsSummaryText += `   - Spesifikasi: ${specDetails}\n`;
+                    }
+                    itemsSummaryText += `   - Desain: ${desain}\n`;
                 });
+
+                itemsSummaryHtml = itemsSummaryText;
+
+                // Validate if order details are empty to prevent empty logs
+                if (!itemsSummaryText.trim()) {
+                    alert("Rincian pesanan kosong! Silakan pilih produk terlebih dahulu.");
+                    resetFormState();
+                    return;
+                }
 
                 // Put the compiled summary into the hidden field for Google Sheet
                 document.getElementById('detailPesananHidden').value = itemsSummaryHtml;
@@ -985,24 +1026,91 @@
                 btnText.textContent = "Sedang Mengirim...";
 
                 const adminPhone = document.getElementById('adminPhone').value || '6282261567685';
+                const platformUuid = document.getElementById('platformUuid')?.value || '';
+                const fetchUrl = platformUuid ? `/order-number/next/${platformUuid}` : '/order-number/next';
 
-                // Post to Google Sheets
-                fetch(scriptURL, { method: 'POST', body: new FormData(orderForm)})
+                const helperPrepareFormData = (orderNoVal) => {
+                    const formData = new FormData(orderForm);
+                    formData.set('no_order', orderNoVal);
+                    
+                    // Add variations of keys to guarantee compatibility with Google Sheets Apps Script
+                    formData.set('items', itemsSummaryHtml);
+                    formData.set('Detail Item', itemsSummaryHtml);
+                    formData.set('detail_item', itemsSummaryHtml);
+                    formData.set('detailitem', itemsSummaryHtml);
+                    formData.set('detail_pesanan', itemsSummaryHtml);
+                    
+                    formData.set('Catatan', notes);
+                    formData.set('catatan', notes);
+                    
+                    formData.set('No. Order', orderNoVal);
+                    formData.set('noorder', orderNoVal);
+                    
+                    formData.set('Nama Pemesan', customerName);
+                    formData.set('nama', customerName);
+                    formData.set('namapemesan', customerName);
+                    
+                    formData.set('No. WhatsApp', '62' + customerWa);
+                    formData.set('nowhatsapp', '62' + customerWa);
+                    formData.set('wa', customerWa);
+                    
+                    formData.set('Tgl. Order', orderDateInput.value);
+                    formData.set('tgl_order', orderDateInput.value);
+                    formData.set('tglorder', orderDateInput.value);
+                    
+                    const formattedDeadline = deadline ? deadline.split('-').reverse().join('-') : '-';
+                    formData.set('Deadline', formattedDeadline);
+                    formData.set('deadline', deadline);
+                    
+                    return new URLSearchParams(formData);
+                };
+
+                // Fetch latest order number dynamically right before submit
+                fetch(fetchUrl)
                     .then(response => {
-                        console.log('Google Sheets success!', response);
+                        if (!response.ok) throw new Error("Gagal mengambil nomor order terbaru");
+                        return response.json();
+                    })
+                    .then(data => {
+                        const updatedOrderNo = data.nextOrderNo || orderNumberVal.value;
                         
-                        // Send silent background confirmation from admin to customer if keys exist
-                        if (appKey && authKey) {
-                            sendBackgroundWaSilent(customerWa, customerName, orderNo, appKey, authKey);
-                        }
-                        
-                        // Redirect customer directly to admin's WhatsApp chat
-                        redirectToAdminWa(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes, adminPhone);
+                        // Update values
+                        orderNumberDisplay.value = updatedOrderNo;
+                        orderNumberVal.value = updatedOrderNo;
+
+                        const urlEncodedData = helperPrepareFormData(updatedOrderNo);
+
+                        // Post to Google Sheets
+                        return fetch(scriptURL, { method: 'POST', body: urlEncodedData })
+                            .then(response => {
+                                console.log('Google Sheets success!', response);
+                                
+                                // Send silent background confirmation from admin to customer if keys exist
+                                if (appKey && authKey) {
+                                    sendBackgroundWaSilent(customerWa, customerName, updatedOrderNo, appKey, authKey);
+                                }
+                                
+                                // Redirect customer directly to admin's WhatsApp chat
+                                redirectToAdminWa(customerWa, customerName, updatedOrderNo, itemsSummaryText, deadline, notes, adminPhone);
+                            });
                     })
                     .catch(error => {
-                        console.error('Sheets Error!', error);
-                        alert("Gagal terhubung ke database sheet, mengalihkan langsung ke WhatsApp Admin...");
-                        redirectToAdminWa(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes, adminPhone);
+                        console.error('Error in order submission flow:', error);
+                        // Fallback: submit with current order number if AJAX fails
+                        const currentOrderNo = orderNumberVal.value;
+                        const urlEncodedData = helperPrepareFormData(currentOrderNo);
+                        
+                        fetch(scriptURL, { method: 'POST', body: urlEncodedData })
+                            .then(response => {
+                                if (appKey && authKey) {
+                                    sendBackgroundWaSilent(customerWa, customerName, currentOrderNo, appKey, authKey);
+                                }
+                                redirectToAdminWa(customerWa, customerName, currentOrderNo, itemsSummaryText, deadline, notes, adminPhone);
+                            })
+                            .catch(err => {
+                                alert("Gagal terhubung ke database sheet, mengalihkan langsung ke WhatsApp Admin...");
+                                redirectToAdminWa(customerWa, customerName, currentOrderNo, itemsSummaryText, deadline, notes, adminPhone);
+                            });
                     });
             });
 
@@ -1028,10 +1136,29 @@
             // Redirect customer directly to admin's WhatsApp chat with prefilled order format
             function redirectToAdminWa(customerWa, customerName, orderNo, itemsSummaryText, deadline, notes, adminNumber) {
                 const formattedDeadline = deadline ? deadline.split('-').reverse().join('-') : '-';
-                const waMessage = `Halo Admin, saya ingin konfirmasi pesanan dengan detail:\n\n*No. Order:* ${orderNo}\n*Nama:* ${customerName}\n*WA:* 0${customerWa}\n*Tgl Order:* ${orderDateInput.value}\n*Deadline:* ${formattedDeadline}\n\n*Pesanan:*${itemsSummaryText}\n*Catatan:* ${notes || '-'}`;
                 
-                // Redirect the customer in the same window (or new tab, same window is more reliable)
-                window.location.href = `https://api.whatsapp.com/send?phone=${adminNumber}&text=${encodeURIComponent(waMessage)}`;
+                const waMessage = `*===== PESANAN BARU =====*\n\n` +
+                    `*No. Order:* ${orderNo}\n` +
+                    `*Nama Pemesan:* ${customerName}\n` +
+                    `*No. WhatsApp:* +62${customerWa}\n\n` +
+                    `*Tgl. Order:* ${orderDateInput.value}\n` +
+                    `*Tgl. Deadline:* ${formattedDeadline}\n\n` +
+                    `-----------------------------------\n` +
+                    `*DETAIL PESANAN:*\n` +
+                    `${itemsSummaryText}\n` +
+                    `-----------------------------------\n\n` +
+                    `*Catatan Tambahan:*\n` +
+                    `${notes || '-'}\n\n` +
+                    `*Penting:* Desain akan dikonfirmasi dalam 1–2 hari setelah dikirim (kecuali hari Minggu/tanggal merah). Setelah *FIX*, pesanan langsung diproses dan desain *tidak bisa diubah kembali*.\n\n` +
+                    `_Untuk pesanan dengan desain baru, mohon kirimkan file logo Anda (jika ada)._\n\n` +
+                    `Terima kasih`;
+                
+                // Reset form and states before redirecting
+                orderForm.reset();
+                resetFormState();
+                
+                // Redirect directly in current window to trigger WhatsApp native app deep-link reliably on mobile
+                window.location.href = `https://wa.me/${adminNumber}?text=${encodeURIComponent(waMessage)}`;
             }
 
             function resetFormState() {

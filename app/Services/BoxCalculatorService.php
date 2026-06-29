@@ -4,9 +4,9 @@ namespace App\Services;
 
 class BoxCalculatorService
 {
-    public static function getProductTypes(): array
+    public static function getProductTypes(bool $isDoorenz = false): array
     {
-        return [
+        $types = [
             'lunchBox' => 'Kotak Lunch Box',
             'riceBox' => 'Rice Box',
             'dineIn' => 'Dine In (Nampan Kertas)',
@@ -17,17 +17,50 @@ class BoxCalculatorService
             'kotakMug' => 'Kotak Mug',
             'burger' => 'Kotak Burger',
         ];
+        if ($isDoorenz) {
+            $types['customFlat'] = 'Custom Ukuran Datar';
+        }
+        return $types;
     }
 
-    public static function getBahanOptions(): array
+    public static function getBahanOptions(bool $isDoorenz = false): array
     {
-        return [
-            'kraft290_off' => 'Kraft 290gr',
-            'ivory250_off' => 'Ivory 250gr',
-            'duplex250_off' => 'Duplex 250gr',
-            'ap310_dig' => 'Art Paper 310 gr (Digital)',
-            'ap260_dig' => 'Art Paper 260 gr (Digital)',
+        $options = [
+            // Offset
+            'kraft290_off' => 'Kraft 290gr (Offset)',
+            'ivory250_off' => 'Ivory 250gr (Offset)',
+            'ivory300_off' => 'Ivory 300gr (Offset)',
+            'ivory350_off' => 'Ivory 350gr (Offset)',
+            'duplex250_off' => 'Duplex 250gr (Offset)',
+            'duplex310_off' => 'Duplex 310gr (Offset)',
+            'ap120_off' => 'Art Paper 120gr (Offset)',
+            'ap150_off' => 'Art Paper 150gr (Offset)',
+            'ap210_off' => 'Art Paper 210gr (Offset)',
+            'ap230_off' => 'Art Paper 230gr (Offset)',
+            'ap260_off' => 'Art Paper 260gr (Offset)',
+            'ap310_off' => 'Art Paper 310gr (Offset)',
         ];
+
+        if ($isDoorenz) {
+            // Digital
+            $options['fotopaper_dig'] = 'Fotopaper (Digital)';
+            $options['basetik_dig'] = 'Basetik (Digital)';
+            $options['ap120_dig'] = 'Art Paper 120gr (Digital)';
+            $options['ap150_dig'] = 'Art Paper 150gr (Digital)';
+            $options['ap210_dig'] = 'Art Paper 210gr (Digital)';
+            $options['ap230_dig'] = 'Art Paper 230gr (Digital)';
+            $options['ap260_dig'] = 'Art Paper 260gr (Digital)';
+            $options['ap310_dig'] = 'Art Paper 310gr (Digital)';
+            $options['hvs80_dig'] = 'HVS 80gr (Digital)';
+            $options['hvs100_dig'] = 'HVS 100gr (Digital)';
+            $options['stiker_hvs_dig'] = 'Stiker HVS (Digital)';
+            $options['stiker_bontax_dig'] = 'Stiker Bontax (Digital)';
+            $options['stiker_quantac_dig'] = 'Stiker Quantac (Digital)';
+            $options['stiker_chromo_dig'] = 'Stiker Chromo (Digital)';
+            $options['stiker_vinyl_dig'] = 'Stiker Vinyl (Digital)';
+        }
+
+        return $options;
     }
 
     public static function getLaminasiOptions(): array
@@ -57,13 +90,49 @@ class BoxCalculatorService
                 'plano_65_100' => 3375,
                 'plano_90_120' => 4750,
             ],
-            // Ivory 250gr hanya tersedia dalam plano 79x109 di Dooren'z
             'ivory250_off' => [
                 'plano_79_109' => 4500,
+                'plano_65_100' => 3375,
             ],
-            // Duplex 250gr hanya tersedia dalam plano 79x109 di Dooren'z
+            'ivory300_off' => [
+                'plano_79_109' => 4750,
+                'plano_65_100' => 3563,
+            ],
+            'ivory350_off' => [
+                'plano_79_109' => 5250,
+                'plano_65_100' => 3938,
+            ],
             'duplex250_off' => [
                 'plano_79_109' => 4500,
+                'plano_65_100' => 3375,
+            ],
+            'duplex310_off' => [
+                'plano_79_109' => 5500,
+                'plano_65_100' => 4125,
+            ],
+            'ap120_off' => [
+                'plano_79_109' => 3500,
+                'plano_65_100' => 2625,
+            ],
+            'ap150_off' => [
+                'plano_79_109' => 4500,
+                'plano_65_100' => 3375,
+            ],
+            'ap210_off' => [
+                'plano_79_109' => 5250,
+                'plano_65_100' => 3938,
+            ],
+            'ap230_off' => [
+                'plano_79_109' => 6000,
+                'plano_65_100' => 4500,
+            ],
+            'ap260_off' => [
+                'plano_79_109' => 6750,
+                'plano_65_100' => 5063,
+            ],
+            'ap310_off' => [
+                'plano_79_109' => 7500,
+                'plano_65_100' => 5625,
             ],
         ];
     }
@@ -73,13 +142,43 @@ class BoxCalculatorService
         return [
             'ap310_dig' => 4000,
             'ap260_dig' => 3300,
+            'stiker_chromo_dig' => 4000,
+            'stiker_vinyl_dig' => 6000,
+            
+            'fotopaper_dig' => 5000,
+            'basetik_dig' => 3800,
+            'ap230_dig' => 3100,
+            'ap210_dig' => 2900,
+            'ap150_dig' => 2700,
+            'ap120_dig' => 2500,
+            'hvs100_dig' => 2300,
+            'hvs80_dig' => 2000,
+            'stiker_bontax_dig' => 4000,
+            'stiker_hvs_dig' => 3500,
+            'stiker_quantac_dig' => 8000,
         ];
     }
 
-    public static function calculateFlatSize(string $type, array $v): array
+    public static function calculateFlatSize(string $type, array $v, string $bahan = '', bool $isDoorenz = false): array
     {
         // Default bleed = 0.75 cm
         $bleed = 0.75;
+        
+        if ($isDoorenz && !empty($bahan)) {
+            $bahanLower = strtolower($bahan);
+            $isDigital = (strpos($bahanLower, '_dig') !== false || strpos($bahanLower, 'dtf_') !== false);
+            
+            if ($isDigital) {
+                if (strpos($bahanLower, 'stiker') !== false || strpos($bahanLower, 'sticker') !== false || strpos($bahanLower, 'dtf') !== false) {
+                    $bleed = 0.3;
+                } else {
+                    $bleed = 0.1;
+                }
+            } else {
+                // Offset bleed is 0.75 cm
+                $bleed = 0.75;
+            }
+        }
         
         switch ($type) {
             case 'lunchBox':
@@ -176,6 +275,14 @@ class BoxCalculatorService
                 $h = ($t_krkn * 2) + $p;
                 break;
                 
+            case 'customFlat':
+                $p = (float)($v['p'] ?? 0);
+                $l = (float)($v['l'] ?? 0);
+                
+                $w = $p;
+                $h = $l;
+                break;
+                
             default:
                 $w = 0;
                 $h = 0;
@@ -212,10 +319,6 @@ class BoxCalculatorService
                 $add_r = (int)floor($rem_w / $h) * (int)floor($H / $w);
             }
             $add_b = 0;
-            if ($rem_h >= $w) {
-                $add_b = (int)floor(($p_cols * $w) / h) * (int)floor($rem_h / $w); // Wait, this division should be by $h
-            }
-            // Fix division
             if ($h > 0 && $rem_h >= $w) {
                 $add_b = (int)floor(($p_cols * $w) / $h) * (int)floor($rem_h / $w);
             }
@@ -242,17 +345,22 @@ class BoxCalculatorService
         return max($p_total, $l_total, $m_p_total, $m_l_total);
     }
 
-    public static function calculatePrice(string $type, array $v, int $qty, string $bahan, string $laminasi): array
+    public static function calculatePrice(string $type, array $v, int $qty, string $bahan, string $laminasi, int $warna = 4, bool $isDoorenz = false): array
     {
-        $isDigital = strpos($bahan, '_dig') !== false;
+        $isDigitalBahan = (strpos($bahan, '_dig') !== false || strpos($bahan, 'dtf_') !== false);
+        if ($isDigitalBahan && !$isDoorenz) {
+            throw new \Exception("Metode cetak digital tidak didukung pada workspace Kakak.");
+        }
+
+        $isDigital = $isDoorenz && (strpos($bahan, '_dig') !== false);
         
         // Calculate flat size
-        $flatSize = self::calculateFlatSize($type, $v);
+        $flatSize = self::calculateFlatSize($type, $v, $bahan, $isDoorenz);
         
         if (isset($flatSize['bawah']) && isset($flatSize['atas'])) {
             // Kotak Tutup Terpisah has separate parts
-            $calcB = self::calculateSinglePartPrice($flatSize['bawah']['w'], $flatSize['bawah']['h'], $qty, $bahan, $laminasi, $isDigital);
-            $calcA = self::calculateSinglePartPrice($flatSize['atas']['w'], $flatSize['atas']['h'], $qty, $bahan, $laminasi, $isDigital);
+            $calcB = self::calculateSinglePartPrice($flatSize['bawah']['w'], $flatSize['bawah']['h'], $qty, $bahan, $laminasi, $isDigital, $warna, $isDoorenz);
+            $calcA = self::calculateSinglePartPrice($flatSize['atas']['w'], $flatSize['atas']['h'], $qty, $bahan, $laminasi, $isDigital, $warna, $isDoorenz);
             
             return [
                 'total_modal' => $calcB['total_modal'] + $calcA['total_modal'],
@@ -260,14 +368,20 @@ class BoxCalculatorService
                 'harga_satuan' => ($calcB['total_jual'] + $calcA['total_jual']) / $qty,
                 'items_per_plano' => min($calcB['items_per_plano'], $calcA['items_per_plano']),
                 'total_plano' => $calcB['total_plano'] + $calcA['total_plano'],
-                'plano_size' => $calcB['plano_size']
+                'plano_size' => $calcB['plano_size'],
+                'raw_fit' => $isDoorenz ? min($calcB['raw_fit'], $calcA['raw_fit']) : min($calcB['items_per_plano'], $calcA['items_per_plano']),
+                'print_division' => $isDoorenz ? $calcB['print_division'] : null,
+                'items_per_sheet' => $isDoorenz ? $calcB['items_per_sheet'] : null,
+                'is_combined' => $isDoorenz ? ($calcB['is_combined'] || $calcA['is_combined']) : false,
+                'is_sablon' => $isDoorenz ? ($calcB['is_sablon'] || $calcA['is_sablon']) : false,
+                'print_method' => $isDoorenz ? $calcB['print_method'] : null,
             ];
         }
         
-        return self::calculateSinglePartPrice($flatSize['w'], $flatSize['h'], $qty, $bahan, $laminasi, $isDigital);
+        return self::calculateSinglePartPrice($flatSize['w'], $flatSize['h'], $qty, $bahan, $laminasi, $isDigital, $warna, $isDoorenz);
     }
 
-    private static function calculateSinglePartPrice(float $w, float $h, int $qty, string $bahan, string $laminasi, bool $isDigital): array
+    private static function calculateSinglePartPrice(float $w, float $h, int $qty, string $bahan, string $laminasi, bool $isDigital, int $warna = 4, bool $isDoorenz = false): array
     {
         // 1. Choose optimal plano size
         $planoSizes = self::getPlanoSizes();
@@ -275,9 +389,29 @@ class BoxCalculatorService
         $maxFit = 0;
         
         if ($isDigital) {
-            // Digital only uses a3plus
+            // Digital only uses a3plus (Max printable area 32 x 47 cm for paper, 31 x 46 cm for sticker)
             $bestPlanoKey = 'a3plus';
-            $maxFit = self::calculateLayoutFit($planoSizes['a3plus']['w'], $planoSizes['a3plus']['h'], $w, $h);
+            $printW = 47.0;
+            $printH = 32.0;
+            if (strpos(strtolower($bahan), 'stiker') !== false || strpos(strtolower($bahan), 'sticker') !== false) {
+                $printW = 46.0;
+                $printH = 31.0;
+            }
+            $maxFit = self::calculateLayoutFit($printW, $printH, $w, $h);
+            
+            if ($maxFit <= 0) {
+                $limitW = $printW;
+                $limitH = $printH;
+                throw new \Exception("Ukuran bentangan terlalu besar untuk area cetak digital A3+ (maksimal {$limitH} x {$limitW} cm termasuk bleed).");
+            }
+
+            // Enforce minimum 5 A3+ sheets for digital printing
+            $minSheets = 5;
+            $requiredSheets = (int)ceil($qty / $maxFit);
+            if ($requiredSheets < $minSheets) {
+                $suggestedQty = $minSheets * $maxFit;
+                throw new \Exception("Minimal cetak digital adalah {$minSheets} lembar A3+. Untuk ukuran box ini, minimal order Anda adalah {$suggestedQty} pcs.");
+            }
         } else {
             // Offset: try plano_79_109, plano_65_100, and plano_90_120
             $offsetPlanos = ['plano_79_109', 'plano_65_100', 'plano_90_120'];
@@ -304,11 +438,37 @@ class BoxCalculatorService
             }
         }
         
-        $itemsPerPlano = $maxFit > 0 ? $maxFit : 1;
+        $rawFit = $maxFit > 0 ? $maxFit : 1;
+        if (!$isDigital) {
+            $itemsPerPlano = self::getAllowedDivision($rawFit);
+        } else {
+            $itemsPerPlano = $rawFit;
+        }
+        
         $totalPlano = (int)ceil($qty / $itemsPerPlano);
+        $isSablon = $isDoorenz && ($qty < 1000);
         
         // 2. Base costs
-        if ($isDigital) {
+        if ($isSablon) {
+            // Screen printing (Sablon Manual 1 Warna)
+            if ($isDigital) {
+                $bahanCost = self::getHargaBahanDigital()[$bahan] ?? 3000;
+                $totalBahan = $totalPlano * $bahanCost;
+                $totalFinishing = 50000; // Flat cutting / potong
+            } else {
+                $sheetCost = self::getHargaBahanOffset()[$bahan][$bestPlanoKey] ?? 4500;
+                $insheet = 10; // lower insheet/waste for screen printing
+                $totalBahan = ($totalPlano + $insheet) * $sheetCost;
+                $totalFinishing = max(15000, $qty * 25); // Potong Jadi
+            }
+            
+            // Screen film/setup cost Rp 150.000 + Rp 500 print fee per piece
+            $totalCetak = 150000 + ($qty * 500);
+            
+            // Sablon is 1 color screen print without laminasi
+            $totalModal = $totalBahan + $totalCetak + $totalFinishing;
+            $totalJual = $totalModal * 1.35; // 35% markup
+        } elseif ($isDigital && $isDoorenz) {
             $bahanCost = self::getHargaBahanDigital()[$bahan] ?? 3000;
             $totalBahan = $totalPlano * $bahanCost;
             $totalCetak = $totalPlano * 4000; // Digital click cost = 4000 per A3+
@@ -329,8 +489,17 @@ class BoxCalculatorService
             $insheet = 25;
             $totalBahan = ($totalPlano + $insheet) * $sheetCost;
             
-            // Offset Click Cost based on Qty (Assume 4 warna full color by default)
-            $totalCetak = self::getOffsetPrintingCost($qty);
+            // Offset printing cost based on jumlah warna (restricted to Doorenz)
+            $warnaFactor = 1.0;
+            if ($isDoorenz) {
+                $warnaFactor = match($warna) {
+                    1 => 0.45,
+                    2 => 0.60,
+                    3 => 0.80,
+                    default => 1.00,
+                };
+            }
+            $totalCetak = self::getOffsetPrintingCost($qty) * $warnaFactor;
             
             // Finishing
             $totalFinishing = max(15000, $qty * 25); // Potong Jadi
@@ -348,13 +517,35 @@ class BoxCalculatorService
         $totalJual = ceil($totalJual / 500) * 500;
         $hargaSatuan = $totalJual / $qty;
         
+        $printLayout = self::getPrintLayout($itemsPerPlano);
+        
+        // Label metode cetak
+        if ($isSablon) {
+            $printMethodLabel = 'Sablon Manual 1 Warna';
+        } elseif ($isDigital) {
+            $printMethodLabel = 'Digital Print';
+        } else {
+            $printMethodLabel = match($warna) {
+                1 => 'Offset 1 Warna',
+                2 => 'Offset 2 Warna',
+                3 => 'Offset 3 Warna',
+                default => 'Offset Full Color (4 Warna)',
+            };
+        }
+        
         return [
             'total_modal' => $totalModal,
             'total_jual' => $totalJual,
             'harga_satuan' => $hargaSatuan,
             'items_per_plano' => $itemsPerPlano,
+            'raw_fit' => $rawFit,
+            'print_division' => $printLayout['print_division'],
+            'items_per_sheet' => $printLayout['items_per_sheet'],
+            'is_combined' => $printLayout['is_combined'],
             'total_plano' => $totalPlano,
-            'plano_size' => $planoSizes[$bestPlanoKey]['name'] ?? $bestPlanoKey
+            'plano_size' => $planoSizes[$bestPlanoKey]['name'] ?? $bestPlanoKey,
+            'is_sablon' => $isSablon,
+            'print_method' => $printMethodLabel,
         ];
     }
 
@@ -377,5 +568,50 @@ class BoxCalculatorService
         }
         
         return 1700000;
+    }
+
+    public static function getAllowedDivision(int $fit): int
+    {
+        if ($fit < 2) {
+            return 1;
+        }
+        
+        if ($fit <= 6) {
+            return $fit;
+        }
+        
+        if ($fit % 2 === 0) {
+            return $fit;
+        }
+        
+        return $fit - 1;
+    }
+
+    public static function getPrintLayout(int $allowedDivision): array
+    {
+        if ($allowedDivision <= 6) {
+            return [
+                'print_division' => $allowedDivision,
+                'items_per_sheet' => 1,
+                'is_combined' => false
+            ];
+        }
+        
+        $possiblePrintDivisions = [6, 5, 4, 3, 2];
+        foreach ($possiblePrintDivisions as $p) {
+            if ($allowedDivision % $p === 0) {
+                return [
+                    'print_division' => $p,
+                    'items_per_sheet' => (int)($allowedDivision / $p),
+                    'is_combined' => true
+                ];
+            }
+        }
+        
+        return [
+            'print_division' => 2,
+            'items_per_sheet' => (int)ceil($allowedDivision / 2),
+            'is_combined' => true
+        ];
     }
 }

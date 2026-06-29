@@ -101,7 +101,7 @@ class ScrapeJob implements ShouldQueue
         $scraperPath = base_path('whatsapp-server/scraper.js');
         $command     = "\"$nodePath\" \"$scraperPath\" \"$query\" 2>nul";
 
-        $output = shell_exec($command);
+        $output = executeSilentCommand($command);
 
         if (empty(trim($output ?? ''))) {
             throw new \Exception('Tidak ada output dari scraper. Pastikan Node.js & Puppeteer terinstall.');

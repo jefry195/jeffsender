@@ -179,11 +179,12 @@ class WebhookController extends Controller
             $incomingMessage = $conversation->messages()
                 ->updateOrCreate(
                     [
+                        'uuid' => $message['id'],
+                    ],
+                    [
                         'module' => 'whatsapp',
                         'owner_id' => $conversation->owner_id,
                         'platform_id' => $conversation->platform_id,
-                    ],
-                    [
                         'customer_id' => $conversation->customer_id,
                         'conversation_id' => $conversation->id,
                         'direction' => 'in',

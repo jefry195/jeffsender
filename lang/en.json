@@ -1151,5 +1151,15 @@
   "Scraping berjalan di background": "Scraping berjalan di background",
   "Scraping berjalan di latar belakang...": "Scraping berjalan di latar belakang...",
   "Anda bisa membuka halaman lain. Data akan muncul otomatis saat selesai.": "Anda bisa membuka halaman lain. Data akan muncul otomatis saat selesai.",
-  "Lanjutkan": "Lanjutkan"
+  "Lanjutkan": "Lanjutkan",
+  "Google Sheets App Script URL": "Google Sheets App Script URL",
+  "Enter the Google Apps Script Web App URL": "Enter the Google Apps Script Web App URL",
+  "Pending (Run)": "Pending (Run)",
+  "Scheduled": "Scheduled",
+  "Send (Completed)": "Send (Completed)",
+  "Failed": "Failed",
+  "⏸ Paused (Dijeda)": "⏸ Paused (Dijeda)",
+  "Jeda (Pause)": "Jeda (Pause)",
+  "Send Out of Hours message": "Send Out of Hours message",
+  "This message will be sent outside operational hours / Sunday / Public Holidays": "This message will be sent outside operational hours / Sunday / Public Holidays"
 }

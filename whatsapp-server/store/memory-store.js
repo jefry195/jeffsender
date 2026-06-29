@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { jidNormalizedUser, toNumber, isLidUser } from 'baileys';
 import { EventEmitter } from 'events';
+import logger from '../utils/logger.js';
 
 class ConcurrentStore extends EventEmitter {
     constructor(options = {}) {
@@ -163,6 +164,16 @@ class ConcurrentStore extends EventEmitter {
             this.syncStartTime = Date.now();
             this.hasInitialData = this.hasValidData();
 
+            // **Safety timeout: force-reset isProcessingHistory after 3 minutes**
+            // Prevents the store from being stuck in "processing" state if isLatest never arrives
+            this._historyTimeout = setTimeout(() => {
+                if (this.isProcessingHistory) {
+                    logger.warn('⚠️ History sync safety timeout triggered — force-releasing isProcessingHistory lock');
+                    this.isProcessingHistory = false;
+                    this.syncStartTime = null;
+                }
+            }, 3 * 60 * 1000); // 3 minutes
+
             // **Create backup of existing data**
             if (this.hasInitialData) {
                 await this.createBackup();
@@ -262,6 +273,10 @@ class ConcurrentStore extends EventEmitter {
         } finally {
             this.isProcessingHistory = false;
             this.syncStartTime = null;
+            if (this._historyTimeout) {
+                clearTimeout(this._historyTimeout);
+                this._historyTimeout = null;
+            }
         }
     }
 

@@ -67,6 +67,13 @@ class CampaignService
 
         foreach ($pendingCustomers as $index => $customer) {
 
+            // Check if campaign was paused or cancelled/drafted mid-execution
+            $campaign->refresh();
+            if ($campaign->status === Campaign::STATUS_PAUSED || $campaign->status === Campaign::STATUS_DRAFT) {
+                Log::info("[Campaign #{$campaign->id}] Blasting stopped because status was updated to '{$campaign->status}'.");
+                break;
+            }
+
             // ── [1] Cek daily limit per platform ──
             $sentTodayForPlatform = CampaignLog::whereHas('campaign', fn($q) =>
                 $q->where('platform_id', $campaign->platform_id)

@@ -43,10 +43,8 @@ class AutoReply extends Model
     {
         return $query->where(function (Builder $q) use ($keywords) {
             foreach ($keywords as $keyword) {
-                $q->orWhereRaw(
-                    'JSON_CONTAINS(LOWER(keywords), JSON_QUOTE(LOWER(?)))',
-                    [$keyword]
-                );
+                $q->orWhereJsonContains('keywords', strtolower($keyword))
+                  ->orWhereJsonContains('keywords', $keyword);
             }
         });
     }

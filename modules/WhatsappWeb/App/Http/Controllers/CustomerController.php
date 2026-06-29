@@ -321,7 +321,7 @@ class CustomerController extends Controller
                 ->get();
 
             foreach ($platformContacts as $contact) {
-                $name = $contact->name ?? $contact->notify ?? $contact->verifiedName ?? 'Unknown';
+                $name = $contact->notify ?? $contact->verifiedName ?? $contact->name ?? 'Unknown';
 
                 if ($name === 'Unknown') {
                     $chat = DB::table('Chat')

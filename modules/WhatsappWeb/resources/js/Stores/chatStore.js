@@ -540,8 +540,12 @@ export const useChatStore = defineStore('chatStore', () => {
   // handle webhook
   const connectWebSocket = (channelName) => {
     console.log('Activating live chat...')
-    echoService
-      .connect()
+    const echo = echoService.connect()
+    if (!echo) {
+      console.warn('Websocket config not set. Skipping live chat activation.')
+      return
+    }
+    echo
       .private(channelName)
       .subscribed(() => console.log('Live chat activated successfully'))
       .listen('LiveChatNotifyEvent', handleLiveChatNotifyEvent)
