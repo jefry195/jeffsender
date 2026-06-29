@@ -125,7 +125,7 @@ onMounted(() => {
     // Data sudah ada dari sebelumnya
     places.value = props.scraped_data.data.map((item) => ({ id: item.id, ...item.data }))
     hasSavedData.value = true
-  } else if (scrapingStatus.value === 'in_progress' || scrapingStatus.value === 'pending') {
+  } else if (scrapingStatus.value === 'in_progress') {
     // Sedang berjalan di background (user baru balik ke halaman ini)
     isLoading.value = true
     startPolling()
