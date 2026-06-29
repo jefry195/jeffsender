@@ -194,8 +194,10 @@ class GoogleSheetsPricelistService
                 $currentCat = $cat;
             }
 
-            if (!empty($produk) && (float)$harga > 0) {
-                $out .= "• {$ukuran} {$produk} : *Rp " . number_format((float)$harga, 0, ',', '.') . "* /pcs (Min. " . number_format((float)$moq, 0, ',', '.') . " pcs)\n";
+            $cleanHarga = $this->cleanPrice($harga);
+            $cleanMoq = $this->cleanPrice($moq);
+            if (!empty($produk) && $cleanHarga > 0) {
+                $out .= "• {$ukuran} {$produk} : *Rp " . number_format($cleanHarga, 0, ',', '.') . "* /pcs (Min. " . number_format($cleanMoq, 0, ',', '.') . " pcs)\n";
             }
         }
 
@@ -221,10 +223,12 @@ class GoogleSheetsPricelistService
             $qty    = trim($cols[2] ?? '');
             $harga  = trim($cols[3] ?? '');
 
-            if (empty($ukuran) || empty($jenis) || (float)$harga == 0) continue;
+            $cleanHarga = $this->cleanPrice($harga);
+            $cleanQty = $this->cleanPrice($qty);
+            if (empty($ukuran) || empty($jenis) || $cleanHarga == 0) continue;
 
             $key = "{$ukuran} ({$jenis})";
-            $products[$key][] = ['qty' => (float)$qty, 'harga' => (float)$harga];
+            $products[$key][] = ['qty' => $cleanQty, 'harga' => $cleanHarga];
         }
 
         foreach ($products as $name => $tiers) {
@@ -249,8 +253,9 @@ class GoogleSheetsPricelistService
             $harga500 = trim($cols[1] ?? '');
             if (empty($produk)) continue;
 
-            if ((float)$harga500 > 0) {
-                $out .= "• *{$produk}* : *Rp " . number_format((float)$harga500, 0, ',', '.') . "* /pcs (MOQ 500 pcs)\n";
+            $cleanHarga = $this->cleanPrice($harga500);
+            if ($cleanHarga > 0) {
+                $out .= "• *{$produk}* : *Rp " . number_format($cleanHarga, 0, ',', '.') . "* /pcs (MOQ 500 pcs)\n";
             } else {
                 $out .= "• *{$produk}* : *Hubungi Admin*\n";
             }
@@ -270,7 +275,7 @@ class GoogleSheetsPricelistService
             $total = trim($cols[2] ?? '');
             if (empty($jenis)) continue;
 
-            $cleanHarga = (float)str_replace(['Rp', '.', ' '], '', $harga);
+            $cleanHarga = $this->cleanPrice($harga);
             $out .= "• *{$jenis}* : *Rp " . number_format($cleanHarga, 0, ',', '.') . "* /pcs (Total: {$total} per 1.000 pcs)\n";
         }
 
@@ -296,8 +301,9 @@ class GoogleSheetsPricelistService
                 continue;
             }
 
-            if ((float)$harga > 0) {
-                $out .= "• *Kode {$kode}* ({$dimensi}) : *Rp " . number_format((float)$harga, 0, ',', '.') . "* /pcs\n";
+            $cleanHarga = $this->cleanPrice($harga);
+            if ($cleanHarga > 0) {
+                $out .= "• *Kode {$kode}* ({$dimensi}) : *Rp " . number_format($cleanHarga, 0, ',', '.') . "* /pcs\n";
             } else {
                 $out .= "• *Kode {$kode}* ({$dimensi}) : *Hubungi Admin*\n";
             }
@@ -333,7 +339,7 @@ class GoogleSheetsPricelistService
                 continue;
             }
 
-            $cleanHarga = (float)str_replace(['Rp', '.', ' ', ','], '', $harga);
+            $cleanHarga = $this->cleanPrice($harga);
             if ($cleanHarga > 0) {
                 $groups[$jenis][] = ['ukuran' => $ukuran, 'harga' => $cleanHarga, 'moq' => $moq, 'ket' => $ket];
             }
@@ -545,6 +551,13 @@ class GoogleSheetsPricelistService
         return $exportUrl;
     }
 
+    protected function cleanPrice(?string $priceStr): float
+    {
+        if ($priceStr === null) return 0.0;
+        $clean = preg_replace('/[^\d]/', '', $priceStr);
+        return empty($clean) ? 0.0 : (float)$clean;
+    }
+
     protected function cleanString(string $str): string
     {
         $str = preg_replace('/^[\s:*•\-✅🕒⚠️🖼️👉🥂💰📋]+/u', '', $str);
@@ -568,15 +581,17 @@ class GoogleSheetsPricelistService
             $harga    = trim($cols[3] ?? '');
             $moq      = trim($cols[4] ?? '');
 
-            if (empty($ukuran) || empty($produk) || (float)$harga <= 0) {
+            $cleanHarga = $this->cleanPrice($harga);
+            $cleanMoq = $this->cleanPrice($moq);
+            if (empty($ukuran) || empty($produk) || $cleanHarga <= 0) {
                 continue;
             }
 
             $item = [
                 'ukuran' => $ukuran,
                 'produk' => $produk,
-                'harga'  => (float)$harga,
-                'moq'    => (float)$moq
+                'harga'  => $cleanHarga,
+                'moq'    => $cleanMoq
             ];
 
             $catLower = strtolower($kategori);

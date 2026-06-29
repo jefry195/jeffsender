@@ -147,20 +147,30 @@ class PlanPerks
 
         if ($user->plan_id) {
             $plan = Plan::find($user->plan_id);
-            if ($plan && $plan->is_trial == 1) {
-                $startDate = Carbon::parse($user->created_at);
-                $now = Carbon::now();
-                $cycleEnd = $startDate->copy()->addDays($plan->trial_days);
+            if ($plan) {
+                if ($plan->is_trial == 1) {
+                    $startDate = Carbon::parse($user->created_at);
+                    $now = Carbon::now();
+                    $cycleEnd = $startDate->copy()->addDays($plan->trial_days);
 
-                // Check if trial has expired
-                if ($now->greaterThan($cycleEnd)) {
-                    return self::resolveResponse(['status' => 'error', 'message' => __('Your trial has expired. Please upgrade your plan!')]);
+                    // Check if trial has expired
+                    if ($now->greaterThan($cycleEnd)) {
+                        return self::resolveResponse(['status' => 'error', 'message' => __('Your trial has expired. Please upgrade your plan!')]);
+                    }
+
+                    return [
+                        'start' => $startDate,
+                        'end' => $cycleEnd,
+                    ];
+                } else {
+                    // Regular paid plan assigned manually without an order record
+                    $cycleStart = Carbon::now()->startOfMonth();
+                    $cycleEnd = $cycleStart->copy()->addDays(30);
+                    return [
+                        'start' => $cycleStart,
+                        'end' => $cycleEnd,
+                    ];
                 }
-
-                return [
-                    'start' => $startDate,
-                    'end' => $cycleEnd,
-                ];
             }
         }
 
