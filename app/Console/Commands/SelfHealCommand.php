@@ -40,7 +40,7 @@ class SelfHealCommand extends Command
 
         $this->newLine();
         $this->info("Diagnostics and repairs completed successfully!");
-        return Command::SUCCESS;
+        return \Symfony\Component\Console\Command\Command::SUCCESS;
     }
 
     /**
