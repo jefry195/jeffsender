@@ -333,9 +333,16 @@ class AutoReplyService
 
     private function findBestMatch(string $searchQuery): ?AutoReply
     {
-        $searchTerms = explode(' ', $searchQuery);
-        // Also include the full query as a term so exact-phrase / single-word keywords match
-        $searchTerms[] = $searchQuery;
+        $words = explode(' ', strtolower($searchQuery));
+        $searchTerms = [];
+        $wordCount = count($words);
+        for ($i = 0; $i < $wordCount; $i++) {
+            $phrase = '';
+            for ($j = $i; $j < min($wordCount, $i + 5); $j++) { // up to 5 words
+                $phrase = $phrase ? $phrase . ' ' . $words[$j] : $words[$j];
+                $searchTerms[] = $phrase;
+            }
+        }
         $searchTerms = array_unique($searchTerms);
 
         $potentialMatches = $this->owner
@@ -351,9 +358,50 @@ class AutoReplyService
         foreach ($potentialMatches as $potentialMatch) {
             // Normalize stored keywords to lowercase before comparing
             $normalizedKeywords = array_map('strtolower', $potentialMatch->keywords);
-            $matchCount = count(array_intersect($searchTerms, $normalizedKeywords));
+            $matchedKeywords = array_intersect($searchTerms, $normalizedKeywords);
+            $matchCount = count($matchedKeywords);
 
             if ($matchCount > $maxMatchCount) {
+                // If only 'kurang' matched, check for common false positives
+                if ($matchCount === 1 && in_array('kurang', $matchedKeywords)) {
+                    $cleanQuery = strtolower($searchQuery);
+                    $ignoreWords = [
+                        'kurang lebih', 'kurang cocok', 'kurang bagus', 'kurang rapi', 
+                        'kurang dari', 'kurang pas', 'kurang kencang', 'kurang terang', 
+                        'kurang kontras', 'kurang gede', 'kurang kecil', 'kurang tebal', 
+                        'kurang tipis', 'kurang lebar', 'kurang tinggi', 'kurang panjang', 
+                        'kurang deket', 'kurang jauh', 'kurang banyak', 'kurang dikit', 
+                        'kurang sedikit', 'kurang sreg', 'char', 'karakter', 'limit'
+                    ];
+                    
+                    $shouldIgnore = false;
+                    foreach ($ignoreWords as $word) {
+                        if (str_contains($cleanQuery, $word)) {
+                            $shouldIgnore = true;
+                            break;
+                        }
+                    }
+                    
+                    // Also check if 'kurang' is followed by a number (like 'kurang 600') and doesn't specify 'pcs' or 'barang'
+                    if (!$shouldIgnore && preg_match('/kurang\s+\d+/', $cleanQuery)) {
+                        $complaintWords = ['pcs', 'pc', 'buah', 'lembar', 'barang', 'kirim', 'cetak', 'paket', 'box', 'cup', 'gelas', 'saset', 'sachet', 'biji', 'pack', 'kantong', 'buku', 'kartu', 'stiker', 'flyer', 'brosur'];
+                        $hasComplaintContext = false;
+                        foreach ($complaintWords as $cw) {
+                            if (str_contains($cleanQuery, $cw)) {
+                                $hasComplaintContext = true;
+                                break;
+                            }
+                        }
+                        if (!$hasComplaintContext) {
+                            $shouldIgnore = true;
+                        }
+                    }
+                    
+                    if ($shouldIgnore) {
+                        continue;
+                    }
+                }
+
                 $maxMatchCount = $matchCount;
                 $bestMatch = $potentialMatch;
             }

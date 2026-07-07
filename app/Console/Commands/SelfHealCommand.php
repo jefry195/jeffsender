@@ -234,7 +234,7 @@ class SelfHealCommand extends Command
         $lastActivity  = strtotime($lastTimestamp);
         $minutesAgo    = (int) round((time() - $lastActivity) / 60);
 
-        if ($minutesAgo > 10) {
+        if ($minutesAgo > 360) {
             $this->warn("  [!] Node server last activity was {$minutesAgo} minutes ago ({$lastTimestamp}). Possible freeze detected!");
             $this->comment("  [!] Restarting whatsapp-server to recover from freeze...");
             executeSilentCommand('cmd /c pm2 restart whatsapp-server');

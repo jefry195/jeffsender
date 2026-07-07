@@ -35,6 +35,13 @@ Gunakan file batch ini untuk menyalakan semua mesin utama dalam **satu klik**:
     *   Solusi: Perbaikan kolom database dari `message` menjadi `message_template` pada file `app/Services/AutoReplyService.php`.
 *   Penyebab E (Sesi WA Stuck/Silent Disconnect): Koneksi ke whatsapp-server di PM2 berstatus *online* tetapi Baileys terputus secara senyap.
     *   Solusi: Menambahkan check koneksi HTTP di perintah `jeffsender:self-heal` ke endpoint `/sessions/status/{uuid}`. Jika koneksi terdeteksi offline atau tidak autentik, sistem akan otomatis melakukan `pm2 restart whatsapp-server` untuk memaksa koneksi ulang. Opsi perbaikan otomatis ini juga langsung dieksekusi setiap kali komputer dinyalakan melalui folder Startup.
+*   Penyebab F (Desinkronisasi Berat setelah Offline / Restart Loop di Malam Hari):
+    *   **Masalah:** Saat PC dimatikan setiap malam (misal pukul 10 malam) dan dinyalakan keesokan harinya, Baileys menerima tumpukan data sinkronisasi history yang besar. Ditambah lagi, deteksi freeze di [SelfHealCommand.php](file:///c:/xampp/htdocs/jeffsender/app/Console/Commands/SelfHealCommand.php) sebelumnya diatur sangat sensitif (**10 menit tanpa aktivitas log**). Akibatnya, saat PC menyala atau saat kondisi idle/sepi chat di malam hari, server PM2 dipaksa me-restart WhatsApp secara berulang-ulang setiap 5 menit. Hal ini memicu blokir server WhatsApp dan merusak siklus sinkronisasi (sesi *desynced* / membeku senyap meskipun status tetap authenticated). Selain itu, filter pengaman pesan lama mengabaikan semua pesan masuk selama server freeze/offline.
+    *   **Solusi:**
+        1.  Ambang batas deteksi freeze berbasis aktivitas log di [SelfHealCommand.php](file:///c:/xampp/htdocs/jeffsender/app/Console/Commands/SelfHealCommand.php) ditingkatkan dari **10 menit** menjadi **360 menit (6 jam)** agar tidak terjadi restart loop saat sepi chat.
+        2.  Filter pembatasan pesan lama khusus untuk AutoReply di [HandleIncomingMessageJob.php](file:///c:/xampp/htdocs/jeffsender/modules/WhatsappWeb/App/Jobs/HandleIncomingMessageJob.php) telah dihapus (hanya berlaku untuk campaign saja), sehingga pesan yang masuk saat server mati tetap akan dijawab oleh robot.
+        3.  Script startup Windows `jeffsender_startup.bat` dimodifikasi agar melakukan **`pm2 flush`** (mengosongkan log PM2) dan me-reset `whatsapp-server/logs/app.log` setiap kali komputer baru menyala. Hal ini menjaga performa server tetap ringan tanpa penumpukan sampah log.
+        4.  Mengubah **`STORE_TYPE`** dari **`database`** menjadi **`memory`** di [whatsapp-server/.env](file:///c:/xampp/htdocs/jeffsender/whatsapp-server/.env). Sebelumnya, server WhatsApp mencoba menulis seluruh 58.000 riwayat pesan history sync ke database MySQL via Prisma. Hal ini memblokir event loop Node.js selama bermenit-menit, menghentikan ping keepalive, dan menyebabkan pemutusan senyap oleh server WhatsApp (*silent desync*). Dengan mode *memory*, data disimpan di memori dan file lokal secara instan, membuat koneksi awal sangat cepat dan 100% stabil tanpa risiko macet/beku lagi.
 
 ---
 
@@ -201,6 +208,40 @@ Untuk mempermudah akses remote dan koneksi server, atur IP Static pada Mini PC A
     2. **Pemecahan Sub-Template Ukuran**: Ditambahkan fungsi parser otomatis `updateSubTemplates()` yang memecah baris kategori `GP 1 WARNA` berdasarkan ukuran cup/bag, lalu meng-upsert 10 sub-template detail secara real-time.
     3. **Otomatisasi Harian via PM2**: Agar proses sinkronisasi ini berjalan otomatis setiap hari secara mandiri, ditambahkan aplikasi scheduler pada file [ecosystem.config.cjs](file:///c:/xampp/htdocs/jeffsender/ecosystem.config.cjs) dengan nama `laravel-scheduler` yang menjalankan daemon scheduler bawaan Laravel (`php artisan schedule:work`).
     4. **Jadwal Eksekusi**: Perintah `sheets:update-pricelist` dijadwalkan berjalan secara otomatis **setiap 1 hari sekali (daily)** di background.
+
+---
+
+## 📝 12. PANDUAN MEMBUAT TEMPLATE AUTO-REPLY DENGAN FLOW LIST (MENU INTERAKTIF)
+
+Fitur template bertipe **List** memungkinkan robot mengirim menu interaktif berbentuk tombol opsi (list menu). Ketika pelanggan mengeklik salah satu pilihan, robot akan secara otomatis membalas sesuai opsi yang dipilih.
+
+### Langkah-langkah Pembuatan Flow List:
+
+1. **Buat Template List di Admin Panel:**
+   - Masuk ke menu **Templates** > **Create Template** (Pilih tipe `List`).
+   - Masukkan informasi utama: **Title**, **Body Text**, **Footer**, dan **Button Text** (misal: `"Pilih Layanan"`).
+   - Tambahkan **Sections** dan **Rows** di dalamnya.
+   - **PENTING (Row ID):** Setiap baris (row) wajib diisi dengan **Row ID** yang unik dan spesifik (misal: `doorenz_pricelist`, `doorenz_box_custom`, atau `pricelist_gp_1warna`). Row ID inilah yang akan dikirim secara tersembunyi sebagai pesan teks saat pelanggan mengeklik baris tersebut.
+
+2. **Daftarkan Trigger Auto-Reply di Database / Menu Auto Reply:**
+   - Setelah template list tersimpan, buat entri **Auto Reply** baru untuk merespon setiap **Row ID** yang telah didefinisikan sebelumnya.
+   - **Keywords:** Isi kolom keyword dengan **Row ID** yang sama persis (misal: `doorenz_pricelist`).
+   - **Reply Type:** Pilih `Template` dan hubungkan ke template target yang ingin dikirimkan sebagai jawaban (misal: jika mengeklik `pricelist_gp_1warna`, kirim template detail harga gelas plastik).
+
+### ⚡ Skema Kerja Flow List:
+```mermaid
+graph TD
+    A[Pelanggan ketik kata kunci: 'menu'] --> B(Pemicu Auto-Reply mengirim Welcome Menu tipe List)
+    B --> C[Pelanggan klik tombol list & memilih baris 'Format Order']
+    C --> D[WhatsApp otomatis mengirim pesan teks berisi Row ID: 'doorenz_format_order']
+    D --> E(Auto-Reply mencocokkan keyword 'doorenz_format_order')
+    E --> F[Robot membalas dengan Template: S&K dan Cara Order]
+```
+
+### 🛠️ Custom Flow Ganda (Pricelist + Kalkulator Box) via Code
+Jika Anda ingin suatu kata kunci memicu **dua pesan sekaligus** (seperti mengirim List Template 22 dan langsung memicu kalkulator box interaktif), Anda bisa menambahkannya langsung pada kode program:
+- **Lokasi File:** [AutoReplyService.php](file:///c:/xampp/htdocs/jeffsender/modules/WhatsappWeb/App/Services/AutoReplyService.php)
+- **Cara Kerja:** Intersep ditambahkan di dalam method `handleAutoReply()`. Jika pesan masuk cocok dengan keyword custom, gunakan `$this->dispatchMessage()` untuk mengirim template list, kemudian jalankan `$this->startCalculatorFlow()` untuk mengaktifkan sesi kalkulator box interaktif.
 
 ---
 *Dibuat dengan penuh dedikasi oleh Antigravity AI khusus untuk Jefri - Dooren'z Percetakan.* 💠✨

@@ -103,16 +103,6 @@ class HandleIncomingMessageJob implements ShouldQueue
         // Only trigger auto-reply for incoming text messages
         $messageText = $this->extractMessageText($message);
 
-        $timestamp = data_get($message, 'messageTimestamp');
-        if ($timestamp && (time() - $timestamp) > 300) {
-            logOnDebug('WhatsappWeb: Skipping auto-reply for old message', [
-                'timestamp' => $timestamp,
-                'diff' => time() - $timestamp,
-                'jid' => data_get($message, 'key.remoteJid')
-            ]);
-            return;
-        }
-
         \Log::debug('WhatsappWeb: Analyzing auto-reply', [
             'jid' => data_get($message, 'key.remoteJid'),
             'fromMe' => $fromMe,
