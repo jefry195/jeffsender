@@ -340,6 +340,57 @@ class AutoReplyService
                     }
                 }
 
+                // If only 'jadi' matched, check if it's a false positive (conjunction in a long sentence)
+                if ($matchCount === 1 && in_array('jadi', $matchedKeywords)) {
+                    $cleanQuery = strtolower($searchQuery);
+                    if (count(explode(' ', $cleanQuery)) > 2) {
+                        continue;
+                    }
+                }
+
+                // If only 'salah' matched, check if it's a false positive (salah transfer, salah nominal, etc.)
+                if ($matchCount === 1 && in_array('salah', $matchedKeywords)) {
+                    $cleanQuery = strtolower($searchQuery);
+                    $ignoreSalah = [
+                        'salah nominal', 'salah transfer', 'salah tf', 'salah kirim', 
+                        'salah bayar', 'salah pencet', 'salah ketik', 'salah klik',
+                        'salah input', 'salah jumlah'
+                    ];
+                    $shouldIgnoreSalah = false;
+                    foreach ($ignoreSalah as $word) {
+                        if (str_contains($cleanQuery, $word)) {
+                            $shouldIgnoreSalah = true;
+                            break;
+                        }
+                    }
+                    if ($shouldIgnoreSalah || count(explode(' ', $cleanQuery)) > 3) {
+                        continue;
+                    }
+                }
+
+                // If only a time-of-day greeting matched, check if it's a false positive (time reference rather than greeting)
+                $timeGreetings = ['pagi', 'siang', 'sore', 'malam'];
+                $matchedTimeGreetings = array_intersect($timeGreetings, $matchedKeywords);
+                if ($matchCount === 1 && count($matchedTimeGreetings) === 1) {
+                    $matchedGreet = reset($matchedTimeGreetings);
+                    $cleanQuery = strtolower($searchQuery);
+                    $nonGreetingPatterns = [
+                        'besok ' . $matchedGreet, 'nanti ' . $matchedGreet, 
+                        'hari ' . $matchedGreet, 'kemarin ' . $matchedGreet,
+                        'tiap ' . $matchedGreet, 'setiap ' . $matchedGreet
+                    ];
+                    $isNonGreeting = false;
+                    foreach ($nonGreetingPatterns as $pattern) {
+                        if (str_contains($cleanQuery, $pattern)) {
+                            $isNonGreeting = true;
+                            break;
+                        }
+                    }
+                    if ($isNonGreeting || count(explode(' ', $cleanQuery)) > 3) {
+                        continue;
+                    }
+                }
+
                 $maxMatchCount = $matchCount;
                 $bestMatch = $potentialMatch;
             }

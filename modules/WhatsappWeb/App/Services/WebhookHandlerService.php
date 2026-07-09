@@ -98,6 +98,10 @@ class WebhookHandlerService
 
     public function messagesUpsert()
     {
+        if ($this->getData('type') === 'append') {
+            return;
+        }
+
         $this->liveChatNotifyEvent();
         HandleIncomingMessageJob::dispatch($this->payload);
         UpdateMessageStatusJob::dispatch($this->payload);
