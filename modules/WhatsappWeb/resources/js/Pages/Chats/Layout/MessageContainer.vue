@@ -88,9 +88,9 @@ const sendMessage = () => {
 
 <template>
   <div
-    class="relative ml-2 flex h-[calc(100vh-11rem)] w-full flex-col overflow-hidden rounded-md bg-white shadow transition-all dark:bg-dark-800">
+    class="relative flex h-full w-full flex-col overflow-hidden bg-white dark:bg-dark-800 border-l border-[#e9edef] dark:border-dark-700">
     <Header />
-    <div class="styled-scrollbar whatsapp-chat-body relative h-[82%] overflow-auto px-4 pb-8">
+    <div class="styled-scrollbar whatsapp-chat-body relative flex-1 overflow-y-auto px-4 pb-8">
       <ul class="space-y-3" id="scrollContainerRef" v-if="activeConversation?.messages?.length">
         <li class="my-2 text-center">
           <IntersectionObserver :afterIntersection="chatStore.loadMoreMessages" :loader="loading.messages" />

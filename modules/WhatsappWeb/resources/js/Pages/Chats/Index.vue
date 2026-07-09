@@ -6,14 +6,13 @@ import ChatLayout from '@whatsappWeb/Pages/Chats/Layout/ChatLayout.vue'
 import MessageContainer from '@whatsappWeb/Pages/Chats/Layout/MessageContainer.vue'
 import Modals from '@whatsappWeb/Pages/Chats/Layout/Modals.vue'
 import RightSidebar from '@whatsappWeb/Pages/Chats/Layout/RightSidebar.vue'
-import NoConversation from '@/Components/Chats/NoConversation.vue'
-import UserLayout from '@/Layouts/User/UserLayout.vue'
+import NoConversation from '@whatsappWeb/Pages/Chats/Layout/NoConversation.vue'
 import { useChatStore } from '@whatsappWeb/Stores/chatStore'
 import sharedComposable from '@/Composables/sharedComposable'
 
 const { authUser } = sharedComposable()
 
-defineOptions({ layout: [UserLayout, ChatLayout] })
+defineOptions({ layout: ChatLayout })
 
 const props = defineProps([
   'platforms',
