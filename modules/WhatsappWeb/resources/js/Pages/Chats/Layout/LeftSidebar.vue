@@ -68,6 +68,16 @@ const getLastMessageText = (chat) => {
   if (!text && msg.message?.documentMessage) text = '📄 Document'
   return text
 }
+
+// Helper to safely extract Unix timestamp (handles Prisma Long objects with low/high)
+const getTimestamp = (chat) => {
+  let ts = chat.conversationTimestamp
+  if (!ts) return null
+  if (typeof ts === 'object' && ts.low !== undefined) {
+    return ts.low
+  }
+  return Number(ts)
+}
 </script>
 
 <template>
@@ -258,7 +268,7 @@ const getLastMessageText = (chat) => {
                 <span class="text-[11px] font-normal text-gray-500 shrink-0">
                   {{
                     chat.conversationTimestamp
-                      ? moment.unix(chat.conversationTimestamp).local().format('h:mm A')
+                      ? moment.unix(getTimestamp(chat)).local().format('h:mm A')
                       : ''
                   }}
                 </span>
@@ -268,7 +278,7 @@ const getLastMessageText = (chat) => {
                   <span v-if="chat.lastMessage?.key?.fromMe" class="mr-1">
                     <Icon icon="mdi:check-all" class="inline text-xs text-[#53bdeb]" />
                   </span>
-                  {{ getLastMessageText(chat) || 'No messages' }}
+                  {{ getLastMessageText(chat) }}
                 </p>
                 <span
                   v-if="chat.unreadCount > 0"

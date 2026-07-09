@@ -239,6 +239,15 @@ class WhatsAppWebService
         // Parse the URL to get the path segment (e.g. /uploads/...)
         $parsedUrl = parse_url($url, PHP_URL_PATH);
         if ($parsedUrl) {
+            // Direct storage path resolution if it has storage prefix
+            if (str_starts_with($parsedUrl, '/storage/')) {
+                $relativePath = substr($parsedUrl, 9); // strip '/storage/'
+                $storagePath = storage_path('app/public/' . $relativePath);
+                if (file_exists($storagePath)) {
+                    return $storagePath;
+                }
+            }
+
             // Check if it exists in public directory
             $path = public_path(ltrim($parsedUrl, '/'));
             if (file_exists($path)) {

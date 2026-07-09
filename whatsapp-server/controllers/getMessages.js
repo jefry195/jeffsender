@@ -8,7 +8,7 @@ const getMessages = async (req, res) => {
     const { limit = 25, cursorId = null, cursorFromMe = null, isGroup = false } = req.query
 
     const isGroupBool = isGroup === 'true'
-    const jidFormat = isGroupBool ? formatGroup(jid) : formatPhone(jid)
+    const jidFormat = jid.includes('@') ? jid : (isGroupBool ? formatGroup(jid) : formatPhone(jid))
 
     const cursor = {}
 
