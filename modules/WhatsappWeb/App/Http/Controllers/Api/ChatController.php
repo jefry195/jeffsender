@@ -37,6 +37,7 @@ class ChatController extends Controller
             $customers = \App\Models\Customer::whereIn('uuid', $jids)->get()->keyBy('uuid');
 
             foreach ($response['data']['chats'] as &$chat) {
+                $chat['sessionId'] = $sessionId;
                 $jidPrefix = explode('@', $chat['id'])[0];
                 if (isset($customers[$jidPrefix]) && !empty($customers[$jidPrefix]->name)) {
                     $chat['name'] = $customers[$jidPrefix]->name;

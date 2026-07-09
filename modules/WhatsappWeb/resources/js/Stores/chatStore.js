@@ -275,9 +275,21 @@ export const useChatStore = defineStore('chatStore', () => {
       .then((res) => {
         modalStore.close()
 
+        const sentMsg = res.data?.data?.message
+        if (sentMsg && activeConversation.value) {
+          if (!activeConversation.value.messages) {
+            activeConversation.value.messages = []
+          }
+          if (!activeConversation.value.messages.some((m) => m.key?.id === sentMsg.key?.id)) {
+            activeConversation.value.messages.push(sentMsg)
+          }
+        }
+
         if (['audio', 'video', 'image'].includes(inputMessage.value.type)) {
-          let mediaMessageId = res.data.key.id
-          mediaMessages.value[mediaMessageId] = inputMessage.value.file
+          let mediaMessageId = res.data?.key?.id || sentMsg?.key?.id
+          if (mediaMessageId) {
+            mediaMessages.value[mediaMessageId] = inputMessage.value.file
+          }
         }
 
         inputMessage.value.type = 'text'
