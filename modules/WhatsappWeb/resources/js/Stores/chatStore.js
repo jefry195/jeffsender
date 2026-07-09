@@ -87,8 +87,12 @@ export const useChatStore = defineStore('chatStore', () => {
   const setActiveConversation = (chat) => {
     activeConversation.value = chat
     markAsRead(chat)
-    activeConversation.value.messages = []
-    loadMoreMessages(chat, true)
+    if (!activeConversation.value.messages) {
+      activeConversation.value.messages = []
+    }
+    if (activeConversation.value.messages.length === 0) {
+      loadMoreMessages(chat, true)
+    }
     if (getConversationType(chat.id) === 'group') {
       loadGroupMetadata(chat)
     }
