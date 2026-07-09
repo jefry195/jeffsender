@@ -5,7 +5,7 @@ module.exports = {
       cwd: './whatsapp-server',
       script: 'app.js',
       node_args: '--no-warnings',
-      max_memory_restart: '400M',
+      max_memory_restart: '1200M',
       exp_backoff_restart_delay: 100,
       env: {
         NODE_ENV: 'production'
