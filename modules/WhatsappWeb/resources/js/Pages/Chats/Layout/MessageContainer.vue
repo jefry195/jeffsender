@@ -34,11 +34,16 @@ const getTimestamp = (timestamp) => {
 }
 
 const messages = computed(() => {
-  return (chatStore.activeConversation?.messages ?? []).map((m) => {
+  let list = (chatStore.activeConversation?.messages ?? []).map((m) => {
     if (m && m.message && m.message.message) {
       return m.message
     }
     return m
+  })
+  return list.sort((a, b) => {
+    const tsA = getTimestamp(a.messageTimestamp) || 0
+    const tsB = getTimestamp(b.messageTimestamp) || 0
+    return tsA - tsB
   })
 })
 
