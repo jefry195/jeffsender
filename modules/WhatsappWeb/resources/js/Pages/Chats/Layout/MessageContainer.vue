@@ -1,7 +1,8 @@
 <script setup>
 import {
   onMounted,
-  ref
+  ref,
+  computed
 } from 'vue'
 
 import moment from 'moment'
@@ -31,6 +32,15 @@ const getTimestamp = (timestamp) => {
   }
   return timestamp
 }
+
+const messages = computed(() => {
+  return (chatStore.activeConversation?.messages ?? []).map((m) => {
+    if (m && m.message && m.message.message) {
+      return m.message
+    }
+    return m
+  })
+})
 
 const {
   loading,
@@ -103,7 +113,7 @@ const sendMessage = () => {
           <IntersectionObserver :afterIntersection="chatStore.loadMoreMessages" :loader="loading.messages" />
         </li>
 
-        <li v-for="(message, index) in activeConversation?.messages ?? []" class="group" :key="index"
+        <li v-for="(message, index) in messages" class="group" :key="index"
           :class="{ pr: message?.key?.fromMe }">
           <div v-if="!message?.message?.reactionMessage" class="flex gap-x-3 group-[.pr]:flex-row-reverse">
             <div v-if="!message?.key?.fromMe" class="avatar avatar-circle avatar-sm shrink-0">
