@@ -4,6 +4,17 @@ import { jidNormalizedUser, toNumber, isLidUser } from 'baileys';
 import { EventEmitter } from 'events';
 import logger from '../utils/logger.js';
 
+const getTs = (ts) => {
+    if (ts === null || ts === undefined) return 0;
+    if (typeof ts === 'object') {
+        if ('low' in ts) return ts.low;
+        if (typeof ts.toNumber === 'function') return ts.toNumber();
+    }
+    const num = Number(ts);
+    return isNaN(num) ? 0 : num;
+};
+
+
 class ConcurrentStore extends EventEmitter {
     constructor(options = {}) {
         super();
@@ -530,7 +541,7 @@ class ConcurrentStore extends EventEmitter {
         // Aplicar límite
         if (existingMessages.size > this.config.maxMessagesPerChat) {
             const sortedMessages = Array.from(existingMessages.entries())
-                .sort(([, a], [, b]) => (a.messageTimestamp || 0) - (b.messageTimestamp || 0));
+                .sort(([, a], [, b]) => getTs(a.messageTimestamp) - getTs(b.messageTimestamp));
 
             const toDelete = sortedMessages.slice(0, existingMessages.size - this.config.maxMessagesPerChat);
             toDelete.forEach(([id]) => existingMessages.delete(id));
@@ -696,7 +707,7 @@ class ConcurrentStore extends EventEmitter {
 
         if (chatMessages.size > this.config.maxMessagesPerChat) {
             const sortedMessages = Array.from(chatMessages.entries())
-                .sort(([, a], [, b]) => (a.messageTimestamp || 0) - (b.messageTimestamp || 0));
+                .sort(([, a], [, b]) => getTs(a.messageTimestamp) - getTs(b.messageTimestamp));
 
             const toDelete = sortedMessages.slice(0, chatMessages.size - this.config.maxMessagesPerChat);
             toDelete.forEach(([id]) => chatMessages.delete(id));
@@ -876,13 +887,40 @@ class ConcurrentStore extends EventEmitter {
 
     getLastMessage(jid) {
         const normalizedJid = jidNormalizedUser(jid);
+        let associatedJid = null;
+        for (const c of this.contacts.values()) {
+            if (c.id === normalizedJid && c.lid) {
+                associatedJid = c.lid;
+                break;
+            } else if (c.lid === normalizedJid && c.id) {
+                associatedJid = c.id;
+                break;
+            }
+        }
+
         const chatMessages = this.messages.get(normalizedJid);
+        const assocMessages = associatedJid ? this.messages.get(associatedJid) : null;
 
-        if (!chatMessages || chatMessages.size === 0) return null;
+        if ((!chatMessages || chatMessages.size === 0) && (!assocMessages || assocMessages.size === 0)) {
+            return null;
+        }
 
-        const msgsArray = Array.from(chatMessages.values());
+        let msgsArray = [];
+        if (chatMessages) {
+            msgsArray = Array.from(chatMessages.values());
+        }
+        if (assocMessages) {
+            const assocMsgs = Array.from(assocMessages.values());
+            const existingIds = new Set(msgsArray.map(m => m.key.id));
+            for (const m of assocMsgs) {
+                if (!existingIds.has(m.key.id)) {
+                    msgsArray.push(m);
+                }
+            }
+        }
+
         return msgsArray.sort((a, b) =>
-            (b.messageTimestamp || 0) - (a.messageTimestamp || 0)
+            getTs(b.messageTimestamp) - getTs(a.messageTimestamp)
         )[0];
     }
 
@@ -909,9 +947,21 @@ class ConcurrentStore extends EventEmitter {
 
     async loadMessages(jid, limitOrId = null, optionsOrCursor = {}) {
         const normalizedJid = jidNormalizedUser(jid);
-        const chatMessages = this.messages.get(normalizedJid);
+        let associatedJid = null;
+        for (const c of this.contacts.values()) {
+            if (c.id === normalizedJid && c.lid) {
+                associatedJid = c.lid;
+                break;
+            } else if (c.lid === normalizedJid && c.id) {
+                associatedJid = c.id;
+                break;
+            }
+        }
 
-        if (!chatMessages) return [];
+        const chatMessages = this.messages.get(normalizedJid);
+        const assocMessages = associatedJid ? this.messages.get(associatedJid) : null;
+
+        if (!chatMessages && !assocMessages) return [];
 
         let limit = 50;
         let before = null;
@@ -925,20 +975,24 @@ class ConcurrentStore extends EventEmitter {
             limit = parseInt(limitOrId);
             const cursor = optionsOrCursor || {};
             if (cursor.before && cursor.before.id) {
-                const cursorMsg = chatMessages.get(cursor.before.id);
+                // Look up in either map
+                const cursorMsg = (chatMessages && chatMessages.get(cursor.before.id)) || 
+                                  (assocMessages && assocMessages.get(cursor.before.id));
                 if (cursorMsg) {
                     before = cursorMsg.messageTimestamp || null;
                 }
             }
             if (cursor.after && cursor.after.id) {
-                const cursorMsg = chatMessages.get(cursor.after.id);
+                const cursorMsg = (chatMessages && chatMessages.get(cursor.after.id)) || 
+                                  (assocMessages && assocMessages.get(cursor.after.id));
                 if (cursorMsg) {
                     after = cursorMsg.messageTimestamp || null;
                 }
             }
         } else if (typeof limitOrId === 'string' && limitOrId) {
             // Standard loadMessages(jid, messageId, options)
-            const message = chatMessages.get(limitOrId);
+            const message = (chatMessages && chatMessages.get(limitOrId)) || 
+                            (assocMessages && assocMessages.get(limitOrId));
             return message ? [message] : [];
         } else {
             // Standard loadMessages(jid, null, options)
@@ -950,15 +1004,19 @@ class ConcurrentStore extends EventEmitter {
             sortOrder = opts.sortOrder !== undefined ? opts.sortOrder : 'desc';
         }
 
-        let msgsArray = Array.from(chatMessages.values());
-
-        // Extract before/after values if they are BigInt representation objects
-        const getTs = (ts) => {
-            if (typeof ts === 'object' && ts !== null && 'low' in ts) {
-                return ts.low;
+        let msgsArray = [];
+        if (chatMessages) {
+            msgsArray = Array.from(chatMessages.values());
+        }
+        if (assocMessages) {
+            const assocMsgs = Array.from(assocMessages.values());
+            const existingIds = new Set(msgsArray.map(m => m.key.id));
+            for (const m of assocMsgs) {
+                if (!existingIds.has(m.key.id)) {
+                    msgsArray.push(m);
+                }
             }
-            return ts;
-        };
+        }
 
         if (before) {
             const beforeVal = getTs(before);
