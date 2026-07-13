@@ -90,9 +90,7 @@ export const useChatStore = defineStore('chatStore', () => {
     if (!activeConversation.value.messages) {
       activeConversation.value.messages = []
     }
-    if (activeConversation.value.messages.length === 0) {
-      loadMoreMessages(chat, true)
-    }
+    loadMoreMessages(chat, true)
     if (getConversationType(chat.id) === 'group') {
       loadGroupMetadata(chat)
     }
@@ -279,7 +277,10 @@ export const useChatStore = defineStore('chatStore', () => {
       .then((res) => {
         modalStore.close()
 
-        const sentMsg = res.data?.data?.message
+        let sentMsg = res.data?.data?.message
+        if (sentMsg && sentMsg.message) {
+          sentMsg = sentMsg.message
+        }
         if (sentMsg && activeConversation.value) {
           if (!activeConversation.value.messages) {
             activeConversation.value.messages = []
