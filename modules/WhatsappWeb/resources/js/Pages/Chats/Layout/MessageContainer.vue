@@ -25,6 +25,13 @@ const assetStore = useAssetStore()
 const chatStore = useChatStore()
 const modalStore = useModalStore()
 
+const getTimestamp = (timestamp) => {
+  if (typeof timestamp === 'object' && timestamp !== null) {
+    if ('low' in timestamp) return timestamp.low
+  }
+  return timestamp
+}
+
 const {
   loading,
   assetPopup,
@@ -114,9 +121,9 @@ const sendMessage = () => {
               </div>
 
               <div class="mb-2">
-                <span class="text-xs font-normal text-slate-400" :title="moment.unix(message.messageTimestamp).local().format('D MMM, YYYY h:mm A')
+                <span class="text-xs font-normal text-slate-400" :title="moment.unix(getTimestamp(message.messageTimestamp)).local().format('D MMM, YYYY h:mm A')
                   ">
-                  {{ moment.unix(message.messageTimestamp).local().format('D MMM, h:mm A') }}
+                  {{ moment.unix(getTimestamp(message.messageTimestamp)).local().format('D MMM, h:mm A') }}
                 </span>
                 <span v-if="message?.key?.fromMe" class="font-bolder ml-1 text-slate-300" :title="message.status == 1
                     ? 'Pending'

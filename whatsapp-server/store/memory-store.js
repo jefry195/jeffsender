@@ -907,44 +907,76 @@ class ConcurrentStore extends EventEmitter {
         return [];
     }
 
-    async loadMessages(jid, messageId = null, options = {}) {
-        const {
-            limit = 50,
-            offset = 0,
-            before = null,
-            after = null,
-            sortOrder = 'desc'
-        } = options;
-
+    async loadMessages(jid, limitOrId = null, optionsOrCursor = {}) {
         const normalizedJid = jidNormalizedUser(jid);
         const chatMessages = this.messages.get(normalizedJid);
 
         if (!chatMessages) return [];
 
-        // **If messageId is provided, search for that specific message**
-        if (messageId) {
-            const message = chatMessages.get(messageId);
+        let limit = 50;
+        let before = null;
+        let after = null;
+        let sortOrder = 'desc';
+        let offset = 0;
+
+        // Check if the signature used is: loadMessages(jid, count, cursor)
+        // where count is a number, and cursor is an object like { before: { id, fromMe } }
+        if (typeof limitOrId === 'number' || (!isNaN(limitOrId) && limitOrId !== null)) {
+            limit = parseInt(limitOrId);
+            const cursor = optionsOrCursor || {};
+            if (cursor.before && cursor.before.id) {
+                const cursorMsg = chatMessages.get(cursor.before.id);
+                if (cursorMsg) {
+                    before = cursorMsg.messageTimestamp || null;
+                }
+            }
+            if (cursor.after && cursor.after.id) {
+                const cursorMsg = chatMessages.get(cursor.after.id);
+                if (cursorMsg) {
+                    after = cursorMsg.messageTimestamp || null;
+                }
+            }
+        } else if (typeof limitOrId === 'string' && limitOrId) {
+            // Standard loadMessages(jid, messageId, options)
+            const message = chatMessages.get(limitOrId);
             return message ? [message] : [];
+        } else {
+            // Standard loadMessages(jid, null, options)
+            const opts = optionsOrCursor || {};
+            limit = opts.limit !== undefined ? opts.limit : 50;
+            offset = opts.offset !== undefined ? opts.offset : 0;
+            before = opts.before !== undefined ? opts.before : null;
+            after = opts.after !== undefined ? opts.after : null;
+            sortOrder = opts.sortOrder !== undefined ? opts.sortOrder : 'desc';
         }
 
-        // **Original behavior if there is no messageId**
         let msgsArray = Array.from(chatMessages.values());
 
+        // Extract before/after values if they are BigInt representation objects
+        const getTs = (ts) => {
+            if (typeof ts === 'object' && ts !== null && 'low' in ts) {
+                return ts.low;
+            }
+            return ts;
+        };
+
         if (before) {
+            const beforeVal = getTs(before);
             msgsArray = msgsArray.filter(msg =>
-                (msg.messageTimestamp || 0) < before
+                getTs(msg.messageTimestamp || 0) < beforeVal
             );
         }
 
         if (after) {
+            const afterVal = getTs(after);
             msgsArray = msgsArray.filter(msg =>
-                (msg.messageTimestamp || 0) > after
+                getTs(msg.messageTimestamp || 0) > afterVal
             );
         }
 
         msgsArray.sort((a, b) => {
-            const dateA = a.messageTimestamp || 0;
-            const dateB = b.messageTimestamp || 0;
+            const dateA = getTs(a.messageTimestamp || 0);
+            const dateB = getTs(b.messageTimestamp || 0);
             return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
         });
 
