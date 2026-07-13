@@ -183,6 +183,7 @@ const messageDirectionIs = (type) => {
       <!-- Unsupported message -->
       <div v-else>
         <p class="text-black dark:text-white">{{ trans('Unsupported message type') }}</p>
+        <pre class="text-[9px] text-gray-500 whitespace-pre-wrap max-w-full overflow-x-auto">{{ JSON.stringify(message, null, 2) }}</pre>
       </div>
     </div>
   </div>
